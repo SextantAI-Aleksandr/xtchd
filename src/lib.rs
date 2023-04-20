@@ -1,6 +1,7 @@
 pub mod integrity;
 pub mod content;
 pub mod responses;
+pub mod writer;
 
 
 pub fn add(left: usize, right: usize) -> usize {
