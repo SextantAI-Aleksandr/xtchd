@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS youtube_channels (
 	url VARCHAR NOT NULL UNIQUE, -- typically c/ChannelName etc.
 	name VARCHAR NOT NULL UNIQUE,
 	prior_sha256 CHAR(64) NOT NULL, -- included for checking integrity
-	write_timestamp TIMESTAMP NOT NULL,     
+	write_timestamp TIMESTAMPTZ NOT NULL,     
 	new_sha256 CHAR(64) NOT NULL,
 	UNIQUE(chan_id, new_sha256),
 	ac tsvector GENERATED ALWAYS AS ( to_tsvector('simple', name )) STORED,
@@ -119,7 +119,7 @@ CREATE TABLE IF NOT EXISTS youtube_videos (
 	chan_id INTEGER NOT NULL
 	name VARCHAR NOT NULL UNIQUE,
 	video_date DATE NOT NULL, -- date the video was loaded
-	write_timestamp TIMESTAMP NOT NULL,
+	write_timestamp TIMESTAMPTZ NOT NULL,
 	new_sha256 CHAR(64) NOT NULL,
 	UNIQUE(vid_id, new_sha256),
 	ac tsvector GENERATED ALWAYS AS ( to_tsvector('simple', name )) STORED,
