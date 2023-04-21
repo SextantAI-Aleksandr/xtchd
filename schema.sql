@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS authors (
 	auth_id INTEGER NOT NULL PRIMARY KEY,
 	name VARCHAR NOT NULL UNIQUE,
 	prior_sha256 CHAR(64) NOT NULL, -- included for checking integrity
-	write_timestamp TIMESTAMP NOT NULL,     
+	write_timestamp TIMESTAMPTZ NOT NULL,     
 	new_sha256 CHAR(64) NOT NULL,
 	UNIQUE(auth_id, new_sha256), -- this allows the constraint below 
 	ac tsvector GENERATED ALWAYS AS ( to_tsvector('simple', name )) STORED,
@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS articles (
 	auth_id INTEGER NOT NULL,
 	title VARCHAR NOT NULL UNIQUE,
 	prior_sha256 CHAR(64) NOT NULL, -- included for checking integrity
-	write_timestamp TIMESTAMP NOT NULL,     
+	write_timestamp TIMESTAMPTZ NOT NULL,     
 	new_sha256 CHAR(64) NOT NULL,
 	UNIQUE(art_id, new_sha256), -- this allows the constraint below 
 	ac tsvector GENERATED ALWAYS AS ( to_tsvector('simple', title )) STORED,

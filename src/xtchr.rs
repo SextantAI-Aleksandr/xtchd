@@ -1,7 +1,7 @@
 //! rows.rs contains a struct corresponding to a row for each of the main tables in schema.sql 
 //! xtchr.rs contains the Xtchr struct, which "etches" (or writes) one row at a time to Postgres
 //! with cryptographic verification. 
-//use postgres::types::ToSql;
+use postgres::types::ToSql;
 use pachydurable::{connect::{ConnPoolNoTLS, ClientNoTLS, pool_no_tls_from_env}, err::GenericError};
 use crate::{rows, integrity::{Xtchable, HashChainLink}};
 
@@ -34,7 +34,7 @@ impl Xtchr {
         let pool = pool_no_tls_from_env().await.unwrap();
         let c = pool.get().await.unwrap();
         let last_author = get_last_row(&c, "SELECT auth_id, new_sha256 FROM authors ORDER BY auth_id DESC LIMIT 1").await.unwrap();
-        let last_article = get_last_row(&c, "SELECT art_id, new_sha256 FROM authors ORDER BY art_id DESC LIMIT 1").await.unwrap();
+        let last_article = get_last_row(&c, "SELECT art_id, new_sha256 FROM articles ORDER BY art_id DESC LIMIT 1").await.unwrap();
         Xtchr{pool, last_author, last_article}
     }
 
@@ -47,7 +47,7 @@ impl Xtchr {
         let c = self.pool.get().await?;
         let _x = c.execute("INSERT INTO authors
             (                           prior_id,         auth_id,        name,                   prior_sha256,         write_timestamp,         new_sha256) 
-                VALUES (%s, %s, %s, %s, %s, %s)", 
+                VALUES ($1, $2, $3, $4, $5, $6)", 
             &[&self.last_author.prior_id, &author.auth_id, &author.name, &self.last_author.prior_sha256, &hclink.write_timestamp, &hclink.new_sha256()]
         ).await.unwrap();
         // update the last author based on the one you just created 

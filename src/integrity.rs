@@ -11,7 +11,7 @@ pub fn now() -> DateTime<Utc> {
 pub fn time_fmt(ts: &DateTime<Utc>) -> String {
     // format a timestamp like this:
     // 'YYYY.MM.DD HH24:MI:SS' (Postgres)
-    ts.format("%Y-%m-%d %H:%M:%S").to_string()
+    ts.format("%Y.%m.%d %H:%M:%S").to_string()
 }
 
 pub fn sha256(input: &str) -> String { 
