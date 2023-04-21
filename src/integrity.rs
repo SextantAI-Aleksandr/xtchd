@@ -30,27 +30,21 @@ pub trait Xtchable {
 }
 
 
+
 /// The hash chain link contains key information needed to help write Postgres rows
 /// Creating a hash chain between the prior row and a new row with its content 
 pub struct HashChainLink {
-    pub prior_id: i32,
-    pub prior_sha256: String,
     pub write_timestamp: DateTime<Utc>,
     pub string_to_hash: String,
 }
 
-impl<T: Xtchable> HashChainLink {
+impl HashChainLink {
 
-    pub fn new(prior_id: i32, prior_sha256: &str, content: &T) -> Self {
-        let prior_sha256 = prior_sha256.to_string();
+    pub fn new<T: Xtchable>(prior_sha256: &str, content: &T) -> Self {
         let write_timestamp = now();
         let string_to_hash = format!("{} write_timestamp={} prior_sha256={}",
             content.state_string(), time_fmt(&write_timestamp), &prior_sha256); 
-        HashChainLink{prior_id, prior_sha256, write_timestamp, string_to_hash}
-    }
-
-    pub fn id(&self) -> i32 {
-        self.prior_id + 1
+        HashChainLink{write_timestamp, string_to_hash}
     }
 
     pub fn new_sha256(&self) -> String {

@@ -82,3 +82,64 @@ VALUES (0, 0, 'Initial Article', '0000000000000000000000000000000000000000000000
 		),
 	'hex')
 );
+
+
+CREATE TABLE IF NOT EXISTS youtube_channels (
+	prior_id INTEGER UNIQUE,
+	chan_id INTEGER NOT NULL PRIMARY KEY,
+	url VARCHAR NOT NULL UNIQUE, -- typically c/ChannelName etc.
+	name VARCHAR NOT NULL UNIQUE,
+	prior_sha256 CHAR(64) NOT NULL, -- included for checking integrity
+	write_timestamp TIMESTAMP NOT NULL,     
+	new_sha256 CHAR(64) NOT NULL,
+	UNIQUE(chan_id, new_sha256),
+	ac tsvector GENERATED ALWAYS AS ( to_tsvector('simple', name )) STORED,
+	CONSTRAINT ytchan_prior CHECK ( (chan_id = 0) OR ((prior_id IS NOT NULL) AND (prior_id = chan_id - 1)) ),
+	CONSTRAINT ytchan_no_delete FOREIGN KEY (prior_id, prior_sha256) REFERENCES youtube_channels (chan_id, new_sha256),
+	CONSTRAINT ytchan_no_rewrite_later CHECK (EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - write_timestamp)) <= 1),
+	CONSTRAINT ytchan_verify_sha256 CHECK (
+		ENCODE(
+			SHA256(
+				CONCAT(
+					'chan_id=', chan_id::VARCHAR,
+					' name=', name,
+					' url=', url,
+					' write_timestamp=', TO_CHAR(write_timestamp, 'YYYY.MM.DD HH24:MI:SS'),
+					' prior_sha256=', prior_sha256
+				)::BYTEA
+			),
+	'hex') = new_sha256)
+);
+
+
+CREATE TABLE IF NOT EXISTS youtube_videos (
+	prior_id INTEGER UNIQUE,
+	vid_id INTEGER NOT NULL PRIMARY KEY,
+	vid_pk CHAR(11) NOT NULL UNIQUE, 	-- this is the key assigned by Youtube
+	chan_id INTEGER NOT NULL
+	name VARCHAR NOT NULL UNIQUE,
+	video_date DATE NOT NULL, -- date the video was loaded
+	write_timestamp TIMESTAMP NOT NULL,
+	new_sha256 CHAR(64) NOT NULL,
+	UNIQUE(vid_id, new_sha256),
+	ac tsvector GENERATED ALWAYS AS ( to_tsvector('simple', name )) STORED,
+	CONSTRAINT ytvid_chan FOREIGN KEY (chan_id) REFERENCES youtube_channels (chan_id),
+	CONSTRAINT ytchan_prior CHECK ( (vid_id = 0) OR ((prior_id IS NOT NULL) AND (prior_id = vid_id - 1)) ),
+	CONSTRAINT ytvid_no_delete FOREIGN KEY (prior_id, prior_sha256) REFERENCES youtube_videos (vid_id, new_sha256),
+	CONSTRAINT ytvid_no_rewrite_later CHECK (EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - write_timestamp)) <= 1),
+	CONSTRAINT ytvid_verify_sha256 CHECK (
+		ENCODE(
+			SHA256(
+				CONCAT(
+					'vid_id=', vid_id::VARCHAR,
+					' chan_id=', chan_id::VARCHAR,
+					' name=', name,
+					' video_date=', TO_CHAR(video_date, 'YYYY.MM.DD'),
+					' write_timestamp=', TO_CHAR(write_timestamp, 'YYYY.MM.DD HH24:MI:SS'),
+					' prior_sha256=', prior_sha256
+				)::BYTEA
+			),
+	'hex') = new_sha256)
+);
+
+
