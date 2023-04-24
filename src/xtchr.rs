@@ -24,7 +24,7 @@ async fn get_last_row(c: &ClientNoTLS, query: &'static str) -> Result<LastRow, G
 
 
 pub struct Pool {
-    pool: ConnPoolNoTLS,
+    pub pool: ConnPoolNoTLS,
 }
 
 impl Pool {
@@ -51,7 +51,7 @@ impl Pool {
 /// The Xtrcr struct is essentially a Postgres client with special methods implemented on it
 /// To write rows with hash chained integrity
 pub struct Xtchr {
-    c: ClientNoTLS
+    pub c: ClientNoTLS
 }
 
 impl Xtchr {
@@ -87,16 +87,17 @@ impl Xtchr {
     }
 
 
-    pub async fn add_article_para(&self, art_id: i32, md: &str) -> Result<(rows::ArticlePara, HashChainLink), GenericError> {
+    pub async fn add_article_para(&self, art_id: i32, md: &str, html: &str) -> Result<(rows::ArticlePara, HashChainLink), GenericError> {
         let last_para = get_last_row(&self.c, "SELECT apara_id, new_sha256 FROM article_paragraphs ORDER BY apara_id DESC LIMIT 1").await.unwrap();
         let apara_id = last_para.prior_id + 1;
         let md = md.to_string();
-        let para = rows::ArticlePara{apara_id, art_id, md};
+        let html = html.to_string();
+        let para = rows::ArticlePara{apara_id, art_id, md, html};
         let hclink = HashChainLink::new(&last_para.prior_sha256, &para);
         let _x = self.c.execute("INSERT INTO article_paragraphs
-            (               prior_id,  apara_id,   art_id,         md,            prior_sha256,        write_timestamp,           new_sha256)
+            (       prior_id,  apara_id,   art_id,      md,       html,            prior_sha256,         write_timestamp,           new_sha256)
                 VALUES ($1, $2, $3, $4, $5, $6, $7) ",
-        &[&last_para.prior_id, &apara_id, &art_id, &para.md, &last_para.prior_sha256, &hclink.write_timestamp, &hclink.new_sha256() ]
+        &[&last_para.prior_id, &apara_id, &art_id, &para.md, &para.html, &last_para.prior_sha256, &hclink.write_timestamp, &hclink.new_sha256() ]
         ).await.unwrap();
         Ok((para, hclink))
     }

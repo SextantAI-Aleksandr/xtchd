@@ -2,6 +2,8 @@
 //! Serialization and deserialization are implemented to enable passing structs over http
 
 use serde::{Serialize, Deserialize};
+use tokio_postgres;
+use pachydurable::autocomplete::{AutoComp, WhoWhatWhere};
 use crate::integrity::Xtchable;
 
 
@@ -16,6 +18,23 @@ impl Xtchable for Author {
         format!("auth_id={} name={}", &self.auth_id, &self.name)
     }
 }
+
+impl AutoComp<i32> for Author {
+    fn query_autocomp() ->  & 'static str {
+        "SELECT auth_id, name  
+        FROM authors
+        WHERE ac @@ to_tsquery('simple', $1)
+        ORDER BY LENGTH(name) ASC 
+        LIMIT 10;"
+    }
+    fn rowfunc_autocomp(row: &tokio_postgres::Row) -> WhoWhatWhere<i32> {
+        let data_type = "Author";
+        let auth_id: i32 = row.get(0);
+        let name: String = row.get(1);
+        WhoWhatWhere{data_type, pk: auth_id, name}
+    }
+}
+
 
 #[derive(Serialize, Deserialize)]
 pub struct Article {
