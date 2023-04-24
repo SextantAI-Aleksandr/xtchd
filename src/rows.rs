@@ -30,6 +30,22 @@ impl Xtchable for Article {
     }
 }
 
+/// This struct corresponds to one article paragraph
+#[derive(Serialize, Deserialize)]
+pub struct ArticlePara {
+    pub art_id: i32, 
+    pub apara_id: i32,
+    pub md: String,         // Markdown for this article
+    pub html: String,       // HTML = Markdown + NLP enrichment 
+}
+
+impl Xtchable for ArticlePara {
+    fn state_string(&self) -> String {
+        format!("apara_id={} art_id={} md={} html={}", &self.apara_id, &self.art_id, &self.md, &self.html)
+    }
+}
+
+
 #[derive(Serialize, Deserialize)]
 pub struct YoutubeChannel {
     pub chan_id: i32,   // the primary key for this channel

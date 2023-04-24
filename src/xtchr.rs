@@ -57,7 +57,7 @@ pub struct Xtchr {
 impl Xtchr {
 
     // add an author
-    pub async fn add_author(& self, name: &str) -> Result<(rows::Author, HashChainLink), GenericError> {
+    pub async fn add_author(&self, name: &str) -> Result<(rows::Author, HashChainLink), GenericError> {
         let last_author = get_last_row(&self.c, "SELECT auth_id, new_sha256 FROM authors ORDER BY auth_id DESC LIMIT 1").await.unwrap();
         let auth_id = last_author.prior_id + 1;
         let name = name.to_string();
@@ -72,19 +72,35 @@ impl Xtchr {
     }
 
     // add an article (but not the text thereof)
-    pub async fn add_article(&mut self, auth_id: i32, title: &str) -> Result<(rows::Article, HashChainLink), GenericError> {
+    pub async fn add_article(&self, auth_id: i32, title: &str) -> Result<(rows::Article, HashChainLink), GenericError> {
         let last_article = get_last_row(&self.c, "SELECT art_id, new_sha256 FROM articles ORDER BY art_id DESC LIMIT 1").await.unwrap();
         let art_id = last_article.prior_id + 1;
         let title = title.to_string();
         let article = rows::Article{art_id, auth_id, title};
         let hclink = HashChainLink::new(&last_article.prior_sha256, &article);
         let _x = self.c.execute("INSERT INTO articles
-            (                   prior_id,  art_id, auth_id,          title,               prior_sha256,         write_timestamp, new_sha256)
+            (                   prior_id,  art_id, auth_id,          title,               prior_sha256,         write_timestamp,          new_sha256)
                 VALUES ($1, $2, $3, $4, $5, $6, $7) ",
         &[&last_article.prior_id, &art_id, &auth_id, &article.title, &last_article.prior_sha256, &hclink.write_timestamp, &hclink.new_sha256() ]
         ).await.unwrap();
         Ok((article, hclink))
     }
+
+
+    pub async fn add_article_para(&self, art_id: i32, md: &str) -> Result<(rows::ArticlePara, HashChainLink), GenericError> {
+        let last_para = get_last_row(&self.c, "SELECT apara_id, new_sha256 FROM article_paragraphs ORDER BY apara_id DESC LIMIT 1").await.unwrap();
+        let apara_id = last_para.prior_id + 1;
+        let md = md.to_string();
+        let para = rows::ArticlePara{apara_id, art_id, md};
+        let hclink = HashChainLink::new(&last_para.prior_sha256, &para);
+        let _x = self.c.execute("INSERT INTO article_paragraphs
+            (               prior_id,  apara_id,   art_id,         md,            prior_sha256,        write_timestamp,           new_sha256)
+                VALUES ($1, $2, $3, $4, $5, $6, $7) ",
+        &[&last_para.prior_id, &apara_id, &art_id, &para.md, &last_para.prior_sha256, &hclink.write_timestamp, &hclink.new_sha256() ]
+        ).await.unwrap();
+        Ok((para, hclink))
+    }
+
 
 }
 
