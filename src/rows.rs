@@ -71,19 +71,18 @@ pub struct ArticlePara {
     pub art_id: i32, 
     pub apara_id: i32,
     pub md: String,         // Markdown for this article
-    pub html: String,       // HTML = Markdown + NLP enrichment 
 }
 
 impl Xtchable for ArticlePara {
     fn state_string(&self) -> String {
-        format!("apara_id={} art_id={} md={} html={}", &self.apara_id, &self.art_id, &self.md, &self.html)
+        format!("apara_id={} art_id={} md={}", &self.apara_id, &self.art_id, &self.md)
     }
 }
 
 
 impl FullText for ArticlePara {
     fn query_fulltext() ->  & 'static str {
-        "SELECT art_id, apara_id, md, html
+        "SELECT art_id, apara_id, md
         FROM article_para
         WHERE ts @@ to_tsquery('english', $1)
         LIMIT 20;"
@@ -92,8 +91,7 @@ impl FullText for ArticlePara {
         let art_id: i32 = row.get(0);
         let apara_id: i32 = row.get(1);
         let md: String = row.get(2);
-        let html: String = row.get(3);
-        ArticlePara{art_id, apara_id, md, html}
+        ArticlePara{art_id, apara_id, md}
     }
 }
 

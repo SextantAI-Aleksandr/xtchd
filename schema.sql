@@ -88,7 +88,6 @@ CREATE TABLE IF NOT EXISTS article_para (
 	apara_id INTEGER NOT NULL UNIQUE,
 	art_id INTEGER NOT NULL,
 	md VARCHAR NOT NULL,		-- Markdown for this paragarph 
-	html VARCHAR NOT NULL,		-- HTML = Markdown + NLP enrichment 
 	prior_sha256 CHAR(64) NOT NULL, -- included for checking integrity
 	write_timestamp TIMESTAMPTZ NOT NULL,     
 	new_sha256 CHAR(64) NOT NULL,
@@ -106,7 +105,6 @@ CONSTRAINT apara_verify_sha256 CHECK (
 				'apara_id=', apara_id::VARCHAR,
 				' art_id=', art_id::VARCHAR,
 				' md=', md,
-				' html=', html,
 				' write_timestamp=', TO_CHAR(write_timestamp, 'YYYY.MM.DD HH24:MI:SS'),
 				' prior_sha256=', prior_sha256
 			)::BYTEA
@@ -115,9 +113,8 @@ CONSTRAINT apara_verify_sha256 CHECK (
 );
 CREATE INDEX article_fulltext ON article_para USING GIN(ts);
 
-INSERT INTO article_para (apara_id, art_id, md, html, prior_sha256, write_timestamp, new_sha256) 
+INSERT INTO article_para (apara_id, art_id, md, prior_sha256, write_timestamp, new_sha256) 
 VALUES (0, 0, '*First Paragraph* of [Initial Article](www.xtchd.com) markdown!',
-        '*First Paragraph* of [Initial Article](www.xtchd.com) markdown!',
 	'0000000000000000000000000000000000000000000000000000000000000000',
 	CURRENT_TIMESTAMP, 
 	ENCODE(
@@ -126,7 +123,6 @@ VALUES (0, 0, '*First Paragraph* of [Initial Article](www.xtchd.com) markdown!',
 				'apara_id=', 0::VARCHAR,
 				' art_id=', 0::VARCHAR,
 				' md=', '*First Paragraph* of [Initial Article](www.xtchd.com) markdown!',
-				' html=', '*First Paragraph* of [Initial Article](www.xtchd.com) markdown!',
 				' write_timestamp=', TO_CHAR(CURRENT_TIMESTAMP, 'YYYY.MM.DD HH24:MI:SS'),
 				' prior_sha256=','0000000000000000000000000000000000000000000000000000000000000000'
 			)::BYTEA
