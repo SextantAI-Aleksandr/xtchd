@@ -87,6 +87,7 @@ impl Xtchr {
     }
 
 
+
     pub async fn add_article_para(&self, art_id: i32, md: &str) -> Result<(rows::ArticlePara, HashChainLink), GenericError> {
         let last_para = get_last_row(&self.c, "SELECT apara_id, new_sha256 FROM article_paragraphs ORDER BY apara_id DESC LIMIT 1").await.unwrap();
         let apara_id = last_para.prior_id + 1;
