@@ -3,7 +3,7 @@
 
 use serde::{Serialize, Deserialize};
 use tokio_postgres;
-use pachydurable::autocomplete::{AutoComp, WhoWhatWhere};
+use pachydurable::{autocomplete::{AutoComp, WhoWhatWhere}, fulltext::FullText};
 use crate::integrity::Xtchable;
 
 
@@ -49,6 +49,22 @@ impl Xtchable for Article {
     }
 }
 
+impl AutoComp<i32> for Article {
+    fn query_autocomp() -> &'static str {
+        "SELECT art_id, title 
+        FROM articles 
+        WHERE ac @@ to_tsquery('simple', $1)
+        ORDER BY LENGTH(title) ASC 
+        LIMIT 10"
+    }
+    fn rowfunc_autocomp(row: &tokio_postgres::Row) -> WhoWhatWhere<i32>  {
+        let data_type = "Author";
+        let art_id: i32 = row.get(0);
+        let title: String = row.get(1);
+        WhoWhatWhere{data_type, pk: art_id, name: title}
+    }
+}
+
 /// This struct corresponds to one article paragraph
 #[derive(Serialize, Deserialize)]
 pub struct ArticlePara {
@@ -65,6 +81,23 @@ impl Xtchable for ArticlePara {
 }
 
 
+impl FullText for ArticlePara {
+    fn query_fulltext() ->  & 'static str {
+        "SELECT art_id, apara_id, md, html
+        FROM article_para
+        WHERE ts @@ to_tsquery('english', $1)
+        LIMIT 20;"
+    }
+    fn rowfunc_fulltext(row: &tokio_postgres::Row) -> Self {
+        let art_id: i32 = row.get(0);
+        let apara_id: i32 = row.get(1);
+        let md: String = row.get(2);
+        let html: String = row.get(3);
+        ArticlePara{art_id, apara_id, md, html}
+    }
+}
+
+
 #[derive(Serialize, Deserialize)]
 pub struct YoutubeChannel {
     pub chan_id: i32,   // the primary key for this channel
@@ -75,5 +108,21 @@ pub struct YoutubeChannel {
 impl Xtchable for YoutubeChannel {
     fn state_string(&self) -> String {
         format!("chan_id={} name={} url={}", &self.chan_id, &self.name, &self.url)
+    }
+}
+
+impl AutoComp<i32> for YoutubeChannel {
+    fn query_autocomp() -> &'static str {
+        "SELECT chan_id, name 
+        FROM youtube_channels 
+        WHERE ac @@ to_tsquery('simple', $1)
+        ORDER BY LENGTH(name) ASC 
+        LIMIT 10"
+    }
+    fn rowfunc_autocomp(row: &tokio_postgres::Row) -> WhoWhatWhere<i32>  {
+        let data_type = "YoutubeChannel";
+        let chan_id: i32 = row.get(0);
+        let name: String = row.get(1);
+        WhoWhatWhere{data_type, pk: chan_id, name}
     }
 }
