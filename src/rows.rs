@@ -1,6 +1,7 @@
 //! This module contains a struct corresponding to one row for each of the main tables in xtchr
 //! Serialization and deserialization are implemented to enable passing structs over http
 
+use chrono::NaiveDate;
 use serde::{Serialize, Deserialize};
 use tokio_postgres;
 use pachydurable::{autocomplete::{AutoComp, WhoWhatWhere}, fulltext::FullText};
@@ -122,5 +123,38 @@ impl AutoComp<i32> for YoutubeChannel {
         let chan_id: i32 = row.get(0);
         let name: String = row.get(1);
         WhoWhatWhere{data_type, pk: chan_id, name}
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct YoutubeVideo {
+    pub chan_id: i32,       // The id for the channel,
+    pub vid_id: i32,        // The id for this video 
+    pub vid_pk: String,     // the CHAR(11) url/id for this video 
+    pub title: String,
+    pub date_uploaded: NaiveDate,
+}
+
+impl Xtchable for YoutubeVideo {
+    fn state_string(&self) -> String {
+        format!("vid_id={} vid_pk={} chan_id={} title={}", &self.vid_id, &self.vid_pk, &self.chan_id, &self.title)
+    }
+}
+
+
+impl AutoComp<String> for YoutubeVideo {
+    fn query_autocomp() ->  &'static str {
+        "SELECT vid_pk, title 
+        FROM youtube_vidoes
+        WHERE ac @@ to_tsquery('simple', $1)
+        ORDER BY LENGTH(title) DESC
+        LIMIT 10"
+    }
+
+    fn rowfunc_autocomp(row: &postgres::Row) -> WhoWhatWhere<String> {
+        let data_type = "YoutubeVideo";
+        let vid_pk: String = row.get(0);
+        let title: String = row.get(1);
+        WhoWhatWhere{data_type, pk: vid_pk, name: title}
     }
 }

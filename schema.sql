@@ -112,7 +112,6 @@ CONSTRAINT apara_verify_sha256 CHECK (
 	'hex') = new_sha256)
 );
 CREATE INDEX article_fulltext ON article_para USING GIN(ts);
-
 INSERT INTO article_para (apara_id, art_id, md, prior_sha256, write_timestamp, new_sha256) 
 VALUES (0, 0, '*First Paragraph* of [Initial Article](www.xtchd.com) markdown!',
 	'0000000000000000000000000000000000000000000000000000000000000000',
@@ -160,30 +159,30 @@ CREATE INDEX ytchan_autocomp ON youtube_channels USING GIN(ac);
 INSERT INTO youtube_channels (chan_id, url, name, write_timestamp, prior_sha256, new_sha256) 
 VALUES (0, 'SextantAI', 'SextantAI', CURRENT_TIMESTAMP, '0000000000000000000000000000000000000000000000000000000000000000',
 	ENCODE(
-                        SHA256(
-                                CONCAT(
-                                        'chan_id=', 0::VARCHAR,
-                                        ' name=', 'SextantAI',
-                                        ' url=', 'SextantAI',
-                                        ' write_timestamp=', TO_CHAR(CURRENT_TIMESTAMP, 'YYYY.MM.DD HH24:MI:SS'),
-                                        ' prior_sha256=', '0000000000000000000000000000000000000000000000000000000000000000'
-                                )::BYTEA
-                        ),
-        'hex')
+            SHA256(
+                CONCAT(
+                    'chan_id=', 0::VARCHAR,
+                    ' name=', 'SextantAI',
+                    ' url=', 'SextantAI',
+                    ' write_timestamp=', TO_CHAR(CURRENT_TIMESTAMP, 'YYYY.MM.DD HH24:MI:SS'),
+                    ' prior_sha256=', '0000000000000000000000000000000000000000000000000000000000000000'
+                )::BYTEA
+            ),
+    'hex')
 );
 
 CREATE TABLE IF NOT EXISTS youtube_videos (
 	prior_id INTEGER UNIQUE,
-	vid_id INTEGER NOT NULL PRIMARY KEY,
-	vid_pk CHAR(11) NOT NULL UNIQUE, 	-- this is the key assigned by Youtube
+	vid_id INTEGER NOT NULL UNIQUE
+	vid_pk CHAR(11) NOT NULL PRIMARY KEY, 	-- this is the key assigned by Youtube
 	chan_id INTEGER NOT NULL,
-	name VARCHAR NOT NULL UNIQUE,
+	title VARCHAR NOT NULL,
+	date_uploaded DATE NOT NULL, -- date the video was loaded to youtube 
 	prior_sha256 CHAR(64) NOT NULL, 
-	video_date DATE NOT NULL, -- date the video was loaded
 	write_timestamp TIMESTAMPTZ NOT NULL,
 	new_sha256 CHAR(64) NOT NULL,
 	UNIQUE(vid_id, new_sha256),
-	ac tsvector GENERATED ALWAYS AS ( to_tsvector('simple', name )) STORED,
+	ac tsvector GENERATED ALWAYS AS ( to_tsvector('simple', title )) STORED,
 	CONSTRAINT ytvid_chan FOREIGN KEY (chan_id) REFERENCES youtube_channels (chan_id),
 	CONSTRAINT ytchan_prior CHECK ( (vid_id = 0) OR ((prior_id IS NOT NULL) AND (prior_id = vid_id - 1)) ),
 	CONSTRAINT ytvid_no_delete FOREIGN KEY (prior_id, prior_sha256) REFERENCES youtube_videos (vid_id, new_sha256),
@@ -193,9 +192,9 @@ CREATE TABLE IF NOT EXISTS youtube_videos (
 			SHA256(
 				CONCAT(
 					'vid_id=', vid_id::VARCHAR,
+					' vid_pk=', vic_pk,
 					' chan_id=', chan_id::VARCHAR,
-					' name=', name,
-					' video_date=', TO_CHAR(video_date, 'YYYY.MM.DD'),
+					' title=', title,
 					' write_timestamp=', TO_CHAR(write_timestamp, 'YYYY.MM.DD HH24:MI:SS'),
 					' prior_sha256=', prior_sha256
 				)::BYTEA

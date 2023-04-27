@@ -3,6 +3,7 @@
 //! with cryptographic verification. 
 use std::hash::Hash;
 
+use chrono::NaiveDate;
 // use postgres::types::ToSql;
 use pachydurable::{connect::{ConnPoolNoTLS, ClientNoTLS, pool_no_tls_from_env}, err::GenericError};
 use crate::{rows, integrity::{Xtchable, HashChainLink}};
@@ -87,7 +88,7 @@ impl Xtchr {
     }
 
 
-
+    /// add a paragarph for an article 
     pub async fn add_article_para(&self, art_id: i32, md: &str) -> Result<(rows::ArticlePara, HashChainLink), GenericError> {
         let last_para = get_last_row(&self.c, "SELECT apara_id, new_sha256 FROM article_paragraphs ORDER BY apara_id DESC LIMIT 1").await.unwrap();
         let apara_id = last_para.prior_id + 1;
@@ -100,6 +101,39 @@ impl Xtchr {
         &[&last_para.prior_id, &apara_id, &art_id, &para.md, &last_para.prior_sha256, &hclink.write_timestamp, &hclink.new_sha256() ]
         ).await.unwrap();
         Ok((para, hclink))
+    }
+
+    // create a new record for a youtube channel
+    pub async fn add_youtube_channel(&self, url: &str, name: &str) -> Result<(rows::YoutubeChannel, HashChainLink), GenericError> {
+        let last_chan = get_last_row(&self.c, "SELECT chan_id, new_sha256 FROM youtube_channels ORDER BY chan_id DESC LIMIT 1").await.unwrap();
+        let chan_id = last_chan.prior_id + 1;
+        let url = url.to_lowercase();
+        let name = name.to_string();
+        let chan = rows::YoutubeChannel{chan_id, url, name};
+        let hclink = HashChainLink::new(&last_chan.prior_sha256, &chan);
+        let _x = self.c.execute("INSERT INTO youtube_channels 
+            (                    prior_id, chan_id,       url,       name,             prior_sha256,        write_timestamp,           new_sha256)
+                VALUES ($1, $2, $3, $4, $5, $6, $7) ",
+            &[&last_chan.prior_id, &chan_id, &chan.url, &chan.name, &last_chan.prior_sha256, &hclink.write_timestamp, &hclink.new_sha256()]
+        ).await.unwrap();
+        Ok((chan, hclink))
+    }
+
+    // create a new record for a youtube video 
+    pub async fn add_youtube_video(&self, chan_id: i32, vid_pk: &str, title: &str, date_uploaded: &NaiveDate) -> Result<(rows::YoutubeVideo, HashChainLink), GenericError> {
+        let last_vid = get_last_row(&self.c, "SELECT vid_id, new_sha256 FROM youtube_videos ORDER BY vid_id DESC LIMIT 1").await.unwrap();
+        let vid_id = last_vid.prior_id + 1;
+        let vid_pk = vid_pk.to_string();
+        let title = title.to_string();
+        let date_uploaded = date_uploaded.clone();
+        let video = rows::YoutubeVideo{vid_id, vid_pk, chan_id, title, date_uploaded};
+        let hclink = HashChainLink::new(&last_vid.prior_sha256, &video);
+        let _x = self.c.execute("INSERT INTO youtube_videos 
+            (                  prior_id,  vid_id,         vid_pk,       chan_id,        title,        date_uploaded,           prior_sha256,         write_timestamp,           new_sha256)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ",
+            &[&last_vid.prior_id, &vid_id, &video.vid_pk, &video.chan_id, &video.title, &video.date_uploaded, &last_vid.prior_sha256, &hclink.write_timestamp, &hclink.new_sha256()]
+        ).await.unwrap();
+        Ok((video, hclink))
     }
 
 
