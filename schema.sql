@@ -171,9 +171,10 @@ VALUES (0, 'SextantAI', 'SextantAI', CURRENT_TIMESTAMP, '00000000000000000000000
     'hex')
 );
 
+
 CREATE TABLE IF NOT EXISTS youtube_videos (
 	prior_id INTEGER UNIQUE,
-	vid_id INTEGER NOT NULL UNIQUE
+	vid_id INTEGER NOT NULL UNIQUE,
 	vid_pk CHAR(11) NOT NULL PRIMARY KEY, 	-- this is the key assigned by Youtube
 	chan_id INTEGER NOT NULL,
 	title VARCHAR NOT NULL,
@@ -192,7 +193,7 @@ CREATE TABLE IF NOT EXISTS youtube_videos (
 			SHA256(
 				CONCAT(
 					'vid_id=', vid_id::VARCHAR,
-					' vid_pk=', vic_pk,
+					' vid_pk=', vid_pk,
 					' chan_id=', chan_id::VARCHAR,
 					' title=', title,
 					' write_timestamp=', TO_CHAR(write_timestamp, 'YYYY.MM.DD HH24:MI:SS'),
