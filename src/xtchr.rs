@@ -5,7 +5,7 @@ use std::hash::Hash;
 
 use chrono::NaiveDate;
 // use postgres::types::ToSql;
-use pachydurable::{connect::{ConnPoolNoTLS, ClientNoTLS, pool_no_tls_from_env}, err::GenericError};
+use pachydurable::{connect::{ConnPoolNoTLS, ClientNoTLS, pool_no_tls_from_env}, err::DiskError};
 use crate::{rows, integrity::{Xtchable, HashChainLink}};
 
 
@@ -15,7 +15,7 @@ pub struct LastRow {
 }
 
 
-async fn get_last_row(c: &ClientNoTLS, query: &'static str) -> Result<LastRow, GenericError> {
+async fn get_last_row(c: &ClientNoTLS, query: &'static str) -> Result<LastRow, DiskError> {
     let rows = c.query(query, &[]).await.unwrap();
     let row = rows.get(0).unwrap();
     let prior_id: i32 = row.get(0);
@@ -42,7 +42,7 @@ impl Pool {
     }
 
 
-    pub async fn get(&self) -> Result<Xtchr, GenericError> {
+    pub async fn get(&self) -> Result<Xtchr, DiskError> {
         let c = self.pool.get().await.unwrap();
         Ok(Xtchr{c})
     }
@@ -58,7 +58,7 @@ pub struct Xtchr {
 impl Xtchr {
 
     // add an author
-    pub async fn add_author(&self, name: &str) -> Result<(rows::Author, HashChainLink), GenericError> {
+    pub async fn add_author(&self, name: &str) -> Result<(rows::Author, HashChainLink), DiskError> {
         let last_author = get_last_row(&self.c, "SELECT auth_id, new_sha256 FROM authors ORDER BY auth_id DESC LIMIT 1").await.unwrap();
         let auth_id = last_author.prior_id + 1;
         let name = name.to_string();
@@ -73,7 +73,7 @@ impl Xtchr {
     }
 
     // add an article (but not the text thereof)
-    pub async fn add_article(&self, auth_id: i32, title: &str) -> Result<(rows::Article, HashChainLink), GenericError> {
+    pub async fn add_article(&self, auth_id: i32, title: &str) -> Result<(rows::Article, HashChainLink), DiskError> {
         let last_article = get_last_row(&self.c, "SELECT art_id, new_sha256 FROM articles ORDER BY art_id DESC LIMIT 1").await.unwrap();
         let art_id = last_article.prior_id + 1;
         let title = title.to_string();
@@ -89,7 +89,7 @@ impl Xtchr {
 
 
     /// add a paragarph for an article 
-    pub async fn add_article_para(&self, art_id: i32, md: &str) -> Result<(rows::ArticlePara, HashChainLink), GenericError> {
+    pub async fn add_article_para(&self, art_id: i32, md: &str) -> Result<(rows::ArticlePara, HashChainLink), DiskError> {
         let last_para = get_last_row(&self.c, "SELECT apara_id, new_sha256 FROM article_paragraphs ORDER BY apara_id DESC LIMIT 1").await.unwrap();
         let apara_id = last_para.prior_id + 1;
         let md = md.to_string();
@@ -104,7 +104,7 @@ impl Xtchr {
     }
 
     // create a new record for a youtube channel
-    pub async fn add_youtube_channel(&self, url: &str, name: &str) -> Result<(rows::YoutubeChannel, HashChainLink), GenericError> {
+    pub async fn add_youtube_channel(&self, url: &str, name: &str) -> Result<(rows::YoutubeChannel, HashChainLink), DiskError> {
         let last_chan = get_last_row(&self.c, "SELECT chan_id, new_sha256 FROM youtube_channels ORDER BY chan_id DESC LIMIT 1").await.unwrap();
         let chan_id = last_chan.prior_id + 1;
         let url = url.to_lowercase();
@@ -120,7 +120,7 @@ impl Xtchr {
     }
 
     // create a new record for a youtube video 
-    pub async fn add_youtube_video(&self, chan_id: i32, vid_pk: &str, title: &str, date_uploaded: &NaiveDate) -> Result<(rows::YoutubeVideo, HashChainLink), GenericError> {
+    pub async fn add_youtube_video(&self, chan_id: i32, vid_pk: &str, title: &str, date_uploaded: &NaiveDate) -> Result<(rows::YoutubeVideo, HashChainLink), DiskError> {
         let last_vid = get_last_row(&self.c, "SELECT vid_id, new_sha256 FROM youtube_videos ORDER BY vid_id DESC LIMIT 1").await.unwrap();
         let vid_id = last_vid.prior_id + 1;
         let vid_pk = vid_pk.to_string();
