@@ -1,5 +1,7 @@
-//! This module contains a struct corresponding to one row for each of the main tables in xtchr
-//! Serialization and deserialization are implemented to enable passing structs over http
+//! This module contains a struct corresponding to one row for each of the main tables in xtchd
+//! Where cryptographic verification of each row is implemented, hence the name "xrows" for "xtchd rows".
+//! Structs implement deserialization to aid in implementing the tokio_postgres::types::FromSql trait
+//! and implement serialization to aid in passing them over http. 
 
 use chrono::NaiveDate;
 use serde::{Serialize, Deserialize};
@@ -107,8 +109,6 @@ impl<'a> tokio_postgres::types::FromSql<'a> for ArticlePara {
     fn accepts(_ty: &tokio_postgres::types::Type) -> bool {
         true
     }
-    
-    
 }
 
 

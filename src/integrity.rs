@@ -39,7 +39,7 @@ pub trait Xtchable {
 /// This data is used in Postgres to cryptographically verify the integrity of the row being written. 
 /// When the corresponding row is read back from disk, the content can be "wrapped" in a XtchdContent struct 
 /// to allow demonstration of the new_sha256 matching the calculated sha256 (typically in JavaScript in the user's browser.)
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize)]
 pub struct XtchdContent<T: Xtchable> {
     pub prior_id: Option<i32>, // must only be None for the very first entry 
     pub prior_sha256: String,
@@ -48,11 +48,32 @@ pub struct XtchdContent<T: Xtchable> {
     pub new_sha256: String,
 }
 
+
+
+/// When constructing an XtchdContent<T> instance, you need to know the HashChainLink which includes the .string_to_hash property
+/// But the string_to_hash is not stored in postgres!
+/// Instead, the XtchdSQL struct can be deserializsed from an SQL row that containsthe content<T>, a write_timestamp, and a prior_sha256
+/// This is sufficient to generate the HashChainLink.  
+/// NOTE: This means that the SQL query for XtchdContent<T> should actually return the JSON that should be deserialized to XtchdSQL<T>
+#[derive(Deserialize)]
+pub struct XtchdSQL<T: Xtchable> {
+    pub prior_id: Option<i32>, // must only be None for the very first entry 
+    pub prior_sha256: String,
+    pub content: T,
+    pub write_timestamp: DateTime<Utc>,
+    pub new_sha256: String,
+}
+
+
 impl<T: Xtchable + Serialize + DeserializeOwned> XtchdContent<T> {
 
     pub fn new(prior_id: Option<i32>, prior_sha256: String, write_timestamp: DateTime<Utc>, content: T, new_sha256: String) -> Self {
         let hcl = HashChainLink::from_timestamp(&prior_sha256, write_timestamp.clone(), &content);
         XtchdContent{prior_id, prior_sha256, content, hcl, new_sha256}
+    }
+
+    pub fn from_sql(xsql: XtchdSQL<T>) -> Self {
+        XtchdContent::new(xsql.prior_id, xsql.prior_sha256, xsql.write_timestamp, xsql.content, xsql.new_sha256)
     }
 
 }
@@ -61,7 +82,8 @@ impl<T: Xtchable + Serialize + DeserializeOwned> XtchdContent<T> {
 impl<'a, T: Xtchable + Serialize + DeserializeOwned> tokio_postgres::types::FromSql<'a> for XtchdContent<T> {
 
     fn from_sql(_ty: &tokio_postgres::types::Type, raw: &'a [u8]) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
-        let xc: XtchdContent<T> = serde_json::from_slice(raw)?;
+        let xsql: XtchdSQL<T> = serde_json::from_slice(raw)?;
+        let xc = XtchdContent::from_sql(xsql);
         Ok(xc)
     }
 

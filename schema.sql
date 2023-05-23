@@ -87,7 +87,7 @@ CREATE TABLE IF NOT EXISTS article_para (
 	prior_id INTEGER UNIQUE,
 	apara_id INTEGER NOT NULL UNIQUE,
 	art_id INTEGER NOT NULL,
-	md VARCHAR NOT NULL,		-- Markdown for this paragarph 
+	md VARCHAR NOT NULL,		-- Markdown for this paragarph as provided by the author
 	prior_sha256 CHAR(64) NOT NULL, -- included for checking integrity
 	write_timestamp TIMESTAMPTZ NOT NULL,     
 	new_sha256 CHAR(64) NOT NULL,

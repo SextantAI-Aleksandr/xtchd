@@ -1,5 +1,6 @@
 pub mod integrity;
-pub mod rows;
+pub mod xrows;
+pub mod views;
 pub mod xtchr;
 
 
