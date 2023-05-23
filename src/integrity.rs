@@ -1,6 +1,8 @@
 
 use std::hash::Hash;
-use serde::Serialize;
+use serde::{Serialize, Deserialize, de::DeserializeOwned};
+use serde_json;
+use tokio_postgres;
 use sha2::{Sha256, Digest}; // Digest brings the ::new() method into scope
 use chrono::{DateTime, offset::Utc};
 
@@ -37,26 +39,40 @@ pub trait Xtchable {
 /// This data is used in Postgres to cryptographically verify the integrity of the row being written. 
 /// When the corresponding row is read back from disk, the content can be "wrapped" in a XtchdContent struct 
 /// to allow demonstration of the new_sha256 matching the calculated sha256 (typically in JavaScript in the user's browser.)
-#[derive(Serialize)]
-pub struct XtchdContent<T: Xtchable + Serialize> {
-    pub prior_id: i32,
+#[derive(Serialize, Deserialize)]
+pub struct XtchdContent<T: Xtchable> {
+    pub prior_id: Option<i32>, // must only be None for the very first entry 
     pub prior_sha256: String,
-    pub write_timestamp: DateTime<Utc>,
     pub content: T,
-    pub string_to_hash: String,
+    pub hcl: HashChainLink,
     pub new_sha256: String,
 }
 
-impl<T: Xtchable + Serialize> XtchdContent<T> {
-    pub fn calc_sha256(&self) -> String {
-        let hcl = HashChainLink::from_timestamp(&self.prior_sha256, self.write_timestamp.clone(), &self.content);
-        hcl.new_sha256()
+impl<T: Xtchable + Serialize + DeserializeOwned> XtchdContent<T> {
+
+    pub fn new(prior_id: Option<i32>, prior_sha256: String, write_timestamp: DateTime<Utc>, content: T, new_sha256: String) -> Self {
+        let hcl = HashChainLink::from_timestamp(&prior_sha256, write_timestamp.clone(), &content);
+        XtchdContent{prior_id, prior_sha256, content, hcl, new_sha256}
     }
+
 }
 
 
+impl<'a, T: Xtchable + Serialize + DeserializeOwned> tokio_postgres::types::FromSql<'a> for XtchdContent<T> {
+
+    fn from_sql(_ty: &tokio_postgres::types::Type, raw: &'a [u8]) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
+        let xc: XtchdContent<T> = serde_json::from_slice(raw)?;
+        Ok(xc)
+    }
+
+    fn accepts(_ty: &tokio_postgres::types::Type) -> bool {
+        true
+    }
+}
+
 /// The hash chain link contains key information needed to help write Postgres rows
 /// Creating a hash chain between the prior row and a new row with its content 
+#[derive(Serialize, Deserialize)]
 pub struct HashChainLink {
     pub write_timestamp: DateTime<Utc>,
     pub string_to_hash: String,

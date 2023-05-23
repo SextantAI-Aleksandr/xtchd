@@ -3,6 +3,7 @@
 
 use chrono::NaiveDate;
 use serde::{Serialize, Deserialize};
+use serde_json;
 use tokio_postgres;
 use pachydurable::{autocomplete::{AutoComp, WhoWhatWhere}, fulltext::FullText};
 use crate::integrity::Xtchable;
@@ -94,6 +95,20 @@ impl FullText for ArticlePara {
         let md: String = row.get(2);
         ArticlePara{art_id, apara_id, md}
     }
+}
+
+
+impl<'a> tokio_postgres::types::FromSql<'a> for ArticlePara {
+    fn from_sql(_ty: &tokio_postgres::types::Type, raw: &'a [u8]) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
+        let apara: ArticlePara = serde_json::from_slice(raw)?;
+        Ok(apara)
+    }
+
+    fn accepts(_ty: &tokio_postgres::types::Type) -> bool {
+        true
+    }
+    
+    
 }
 
 
