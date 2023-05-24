@@ -58,10 +58,22 @@ pub struct Xtchr {
 impl Xtchr {
 
 
-    /*/// This method is called to get the most recent articles from the database 
-    pub async fn latest_articles(&self) -> Result<Vec<views::ArticleDetail>, DiskError> {
+    /// This method is called to get the most recent articles (but not the associated text)
+    /// Think of it as giving the headline for the most recent articles
+    pub async fn latest_headlines(&self) -> Result<Vec<xrows::Article>, DiskError> {
+        let query = "SELECT art_id, auth_id, title FROM articles 
+            ORDER BY art_id DESC LIMIT 12";
+        let rows = self.c.query(query, &[]).await?;
+        let mut articles = Vec::new();
+        for row in rows {
+            let art_id: i32 = row.get(0);
+            let auth_id: i32 = row.get(1);
+            let title: String = row.get(2);
+            articles.push(xrows::Article{art_id, auth_id, title});
+        }
+        Ok(articles)
+    }
 
-    }*/
 
     /// Get one article, specified by id 
     pub async fn article_detail(&self, art_id: i32) -> Result<views::ArticleDetail, DiskError> {
