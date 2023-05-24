@@ -10,16 +10,30 @@ use crate::{xrows, views, integrity::{XtchdContent, HashChainLink}};
 
 
 pub struct LastRow {
-    pub prior_id: i32,
+    /// This is the latest/highest id in the table. It will only be None for the very first entry 
+    pub prior_id: Option<i32>,
     pub prior_sha256: String,
 }
 
+impl LastRow {
+    pub fn next_id(&self) -> i32 {
+        match self.prior_id {
+            None => 0,
+            Some(i) => i + 1,
+        }
+    }
+}
 
+
+/// This function is intended to get a query that sorts by id (returning the highest/latest)
+/// for use in tables with hash integrity.
+/// If no prior entry has been make, it will return a default value 
 async fn get_last_row(c: &ClientNoTLS, query: &'static str) -> Result<LastRow, DiskError> {
-    let rows = c.query(query, &[]).await.unwrap();
-    let row = rows.get(0).unwrap();
-    let prior_id: i32 = row.get(0);
-    let prior_sha256: String = row.get(1);
+    let rows = c.query(query, &[]).await?;
+    let (prior_id, prior_sha256) = match rows.get(0) {
+        Some(row) => (Some(row.get(0)), row.get(1)),
+        None => (None, "0000000000000000000000000000000000000000000000000000000000000000".to_string()),
+    };
     Ok(LastRow{prior_id, prior_sha256})
 }
 
@@ -113,7 +127,7 @@ impl Xtchr {
     // add an author
     pub async fn add_author(&self, name: &str) -> Result<(xrows::Author, HashChainLink), DiskError> {
         let last_author = get_last_row(&self.c, "SELECT auth_id, new_sha256 FROM authors ORDER BY auth_id DESC LIMIT 1").await.unwrap();
-        let auth_id = last_author.prior_id + 1;
+        let auth_id = last_author.next_id();
         let name = name.to_string();
         let author = xrows::Author{auth_id, name};
         let hclink = HashChainLink::new(&last_author.prior_sha256, &author);
@@ -128,7 +142,7 @@ impl Xtchr {
     // add an article (but not the text thereof)
     pub async fn add_article(&self, auth_id: i32, title: &str) -> Result<(xrows::Article, HashChainLink), DiskError> {
         let last_article = get_last_row(&self.c, "SELECT art_id, new_sha256 FROM articles ORDER BY art_id DESC LIMIT 1").await.unwrap();
-        let art_id = last_article.prior_id + 1;
+        let art_id = last_article.next_id();
         let title = title.to_string();
         let article = xrows::Article{art_id, auth_id, title};
         let hclink = HashChainLink::new(&last_article.prior_sha256, &article);
@@ -144,7 +158,7 @@ impl Xtchr {
     /// add a paragarph for an article 
     pub async fn add_article_para(&self, art_id: i32, md: &str) -> Result<(xrows::ArticlePara, HashChainLink), DiskError> {
         let last_para = get_last_row(&self.c, "SELECT apara_id, new_sha256 FROM article_paragraphs ORDER BY apara_id DESC LIMIT 1").await.unwrap();
-        let apara_id = last_para.prior_id + 1;
+        let apara_id = last_para.next_id();
         let md = md.to_string();
         let para = xrows::ArticlePara{apara_id, art_id, md};
         let hclink = HashChainLink::new(&last_para.prior_sha256, &para);
@@ -159,7 +173,7 @@ impl Xtchr {
     // create a new record for a youtube channel
     pub async fn add_youtube_channel(&self, url: &str, name: &str) -> Result<(xrows::YoutubeChannel, HashChainLink), DiskError> {
         let last_chan = get_last_row(&self.c, "SELECT chan_id, new_sha256 FROM youtube_channels ORDER BY chan_id DESC LIMIT 1").await.unwrap();
-        let chan_id = last_chan.prior_id + 1;
+        let chan_id = last_chan.next_id();
         let url = url.to_lowercase();
         let name = name.to_string();
         let chan = xrows::YoutubeChannel{chan_id, url, name};
@@ -175,7 +189,7 @@ impl Xtchr {
     // create a new record for a youtube video 
     pub async fn add_youtube_video(&self, chan_id: i32, vid_pk: &str, title: &str, date_uploaded: &NaiveDate) -> Result<(xrows::YoutubeVideo, HashChainLink), DiskError> {
         let last_vid = get_last_row(&self.c, "SELECT vid_id, new_sha256 FROM youtube_videos ORDER BY vid_id DESC LIMIT 1").await.unwrap();
-        let vid_id = last_vid.prior_id + 1;
+        let vid_id = last_vid.next_id();
         let vid_pk = vid_pk.to_string();
         let title = title.to_string();
         let date_uploaded = date_uploaded.clone();
@@ -183,7 +197,8 @@ impl Xtchr {
         let hclink = HashChainLink::new(&last_vid.prior_sha256, &video);
         let _x = self.c.execute("INSERT INTO youtube_videos 
             (                  prior_id,  vid_id,         vid_pk,       chan_id,        title,        date_uploaded,           prior_sha256,         write_timestamp,           new_sha256)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ",
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                ON CONFLICT (vid_pk) DO NOTHING",
             &[&last_vid.prior_id, &vid_id, &video.vid_pk, &video.chan_id, &video.title, &video.date_uploaded, &last_vid.prior_sha256, &hclink.write_timestamp, &hclink.new_sha256()]
         ).await.unwrap();
         Ok((video, hclink))
