@@ -157,12 +157,12 @@ impl Xtchr {
 
     /// add a paragarph for an article 
     pub async fn add_article_para(&self, art_id: i32, md: &str) -> Result<(xrows::ArticlePara, HashChainLink), DiskError> {
-        let last_para = get_last_row(&self.c, "SELECT apara_id, new_sha256 FROM article_paragraphs ORDER BY apara_id DESC LIMIT 1").await.unwrap();
+        let last_para = get_last_row(&self.c, "SELECT apara_id, new_sha256 FROM article_para ORDER BY apara_id DESC LIMIT 1").await.unwrap();
         let apara_id = last_para.next_id();
         let md = md.to_string();
         let para = xrows::ArticlePara{apara_id, art_id, md};
         let hclink = HashChainLink::new(&last_para.prior_sha256, &para);
-        let _x = self.c.execute("INSERT INTO article_paragraphs
+        let _x = self.c.execute("INSERT INTO article_para
             (       prior_id,  apara_id,   art_id,       md,                prior_sha256,         write_timestamp,           new_sha256)
                 VALUES ($1, $2, $3, $4, $5, $6, $7) ",
         &[&last_para.prior_id, &apara_id, &art_id, &para.md, &last_para.prior_sha256, &hclink.write_timestamp, &hclink.new_sha256() ]
