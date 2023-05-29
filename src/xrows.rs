@@ -229,6 +229,20 @@ impl FullText for Thumbnail {
 }
 
 
+
+/// The RefFrom struct represents (1) the article a reference is made from, with optional paragraph identifier,
+/// and (2) a brief comment on why this reference is relevant or what it shows 
+#[derive(Serialize, Deserialize)]
+pub struct RefFrom {
+    /// The id of the article making the reference
+    pub art_id: i32,
+    /// optional paragraph specifier if the reference is from one specific paragraph
+    pub apara_id: Option<i32>,
+    /// a brief comment on why this reference is relevant or what the reference shows
+    pub comment: String,
+}
+
+
 /// This struct captures a reference from one article (or a paragraph therein)
 /// to another article (or a paragraph therein), with a brief comment as to why
 /// this reference is relevant or what it shows
@@ -236,25 +250,22 @@ impl FullText for Thumbnail {
 pub struct ArticleRefArticle {
     /// The primary key for this reference
     pub aref_id: i32,
-    /// The id of the article making the reference
-    pub from_art: i32,
-    /// optional paragraph specifier if the reference is from one specific paragraph
-    pub from_para: Option<i32>,
+    /// The article making the reference and why it was made
+    pub rf: RefFrom,
     /// The id of the article being referenced 
     pub refs_art: i32,
     /// optional paragraph specifier if the reference is to one specific paragraph 
     pub refs_para: Option<i32>,
-    /// a brief comment on why this reference is relevant or what the reference shows
-    pub comment: String,
 }
 
 
 impl Xtchable for ArticleRefArticle {
     fn state_string(&self) -> String {
         format!("aref_id={} from_art={} from_para={:?} refs_art={} refs_para={:?} comment={}",
-            &self.aref_id, &self.from_art, &self.from_para, &self.refs_art, &self.refs_para, &self.comment)
+            &self.aref_id, &self.rf.art_id, &self.rf.apara_id, &self.refs_art, &self.refs_para, &self.rf.comment)
     }
 }
+
 
 
 /// This struct captures a reference from one article (or a paragraph therein)
@@ -264,22 +275,35 @@ impl Xtchable for ArticleRefArticle {
 pub struct ArticleRefVideo {
     /// The primary key for this reference
     pub vref_id: i32,
-    /// The article making the reference
-    pub art_id: i32,
-    /// optional paragraph specifier if the reference is from one specific paragraph 
-    pub apara_id: Option<i32>,
+    /// The article making the reference and why it was made
+    pub rf: RefFrom,
     /// The video being referenced 
     pub vid_pk: String,
     /// Optional timestamp (in seconds) within the video 
     pub sec_req: Option<i16>,
-    /// a brief comment on why this reference is relevant or what the reference shows
-    pub comment: String
 }
 
 
 impl Xtchable for ArticleRefVideo {
     fn state_string(&self) -> String {
         format!("vref_id={} art_id={} apara_id={:?} vid_pk={} sec_req={:?} comment={}",
-        &self.vref_id, &self.art_id, &self.apara_id, &self.vid_pk, &self.sec_req, &self.comment)
+        &self.vref_id, &self.rf.art_id, &self.rf.apara_id, &self.vid_pk, &self.sec_req, &self.rf.comment)
     }
+}
+
+
+
+/// This struct captures a reference from one article (or a paragraph therein)
+/// to an image, with a brief comment as to why
+/// this reference is relevant or what it shows 
+#[derive(Deserialize)]
+pub struct ArticleRefImage {
+    /// The primary key for this reference
+    pub iref_id: i32,
+    /// The article making the reference and why it was made
+    pub rf: RefFrom,
+    /// The video being referenced 
+    pub vid_pk: String,
+    /// Optional timestamp (in seconds) within the video 
+    pub sec_req: Option<i16>,
 }

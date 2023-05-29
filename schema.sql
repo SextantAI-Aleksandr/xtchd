@@ -327,3 +327,66 @@ CONSTRAINT arrefv_verify_sha256 CHECK (
 CREATE INDEX vref_com_ts ON article_ref_video USING GIN(ts);
 
 
+
+
+CREATE TABLE IF NOT EXISTS article_ref_image (
+	/*When an article (or a paragraph in an article) references an image,
+	a row is added to capture that reference */
+	prior_id INTEGER UNIQUE,
+	iref_id INTEGER NOT NULL PRIMARY KEY,			-- the id for this reference. Incremented for each new reference 
+	art_id INTEGER NOT NULL,						-- the article making the reference
+	apara_id INTEGER,								-- (optional) paragraph within the article 
+	img_id INTEGER NOT NULL,						-- the image being referenced 
+	comment VARCHAR NOT NULL,						-- a brief explanation of why this is relevant or what it shows
+	prior_sha256 CHAR(64) NOT NULL, 				-- included for checking integrity
+	write_timestamp TIMESTAMPTZ NOT NULL,     
+	new_sha256 CHAR(64) NOT NULL,
+	UNIQUE(iref_id, new_sha256), 					-- this allows the constraint below 
+	ts tsvector GENERATED ALWAYS AS ( to_tsvector('english', comment)) STORED,
+CONSTRAINT imrefar FOREIGN KEY (art_id) REFERENCES articles(art_id),
+CONSTRAINT imrefpa FOREIGN KEY (art_id, apara_id) REFERENCES article_para (art_id, apara_id),
+CONSTRAINT imrefim FOREIGN KEY (img_id) REFERENCES images (img_id),
+CONSTRAINT imref_prior CHECK ( (img_id = 0) OR ((prior_id IS NOT NULL) AND (prior_id = img_id - 1)) ),
+CONSTRAINT imref_no_delete FOREIGN KEY (prior_id, prior_sha256) REFERENCES article_ref_image (img_id, new_sha256),
+CONSTRAINT imref_no_rewrite_later CHECK (EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - write_timestamp)) <= 1),
+CONSTRAINT imref_verify_sha256 CHECK (
+	ENCODE(
+		SHA256(
+			CONCAT(
+				'iref_id=', iref_id::VARCHAR,
+				' art_id=', art_id::VARCHAR,
+				' apara_id=', apara_id::VARCHAR,
+				' img_id=', img_id::VARCHAR,
+				' comment=', comment,
+				' write_timestamp=', TO_CHAR(write_timestamp, 'YYYY.MM.DD HH24:MI:SS'),
+				' prior_sha256=', prior_sha256
+			)::BYTEA
+		),
+	'hex') = new_sha256)
+); 
+CREATE INDEX vref_com_ts ON article_ref_video USING GIN(ts);
+
+
+CREATE TABLE IF NOT EXISTS nlp_topic_pos (
+	/*This records the distinct types of topics based on NLP */ 
+	pos CHAR(3) NOT NULL PRIMARY KEY,
+	descrip VARCHAR NOT NULL UNIQUE
+); 
+INSERT INTO nlp_topic_pos (pos, descrip) VALUES 
+('ORG', 'Organization, i.e. a company, nonprofit, etc.'), 
+('GPE', 'GeoPolitical entity, typically a geographic place'),
+('PER', 'Person'), 
+('FAC', 'Facility'),
+('NCK', 'Noun Chunk');
+
+
+CREATE TABLE IF NOT EXISTS nlp_topics (
+	/*Identifying topics using NLP is a convenient way to connect related articles
+	using NLP */
+	pos CHAR(3) NOT NULL,				-- the part-of-speech this topic belongs to
+	tkey VARCHAR NOT NULL PRIMARY KEY,	-- primary key, string
+	name VARCHAR NOT NULL,				-- the name, i.e. the topic
+	count SMALLINT NOT NULL DEFAULT 1,	-- the frequency with which this topic has been identified 
+	ac tsvector GENERATED ALWAYS AS ( to_tsvector('simple', name )) STORED,
+CONSTRAINT nlpentpos FOREIGN KEY (pos) REFERENCES nlp_topic_pos(pos)
+);
