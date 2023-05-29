@@ -160,7 +160,7 @@ impl Xtchable for YoutubeVideo {
 impl AutoComp<String> for YoutubeVideo {
     fn query_autocomp() ->  &'static str {
         "SELECT vid_pk, title 
-        FROM youtube_vidoes
+        FROM youtube_videos
         WHERE ac @@ to_tsquery('simple', $1)
         ORDER BY LENGTH(title) DESC
         LIMIT 10"
@@ -171,5 +171,115 @@ impl AutoComp<String> for YoutubeVideo {
         let vid_pk: String = row.get(0);
         let title: String = row.get(1);
         WhoWhatWhere{data_type, pk: vid_pk, name: title}
+    }
+}
+
+
+
+/// This struct is processed when saving an image which will have a 
+/// sha256 hash calcualted to prove it has not been tampered.  
+/// NOTE: The SQL schema also references a thumbnail src, which is what will typically be
+/// rendered unless the user clicks on the image to see the full version 
+#[derive(Serialize, Deserialize)]
+pub struct Image {
+    /// The id for this image
+    pub img_id: i32,
+    /// base64 encoded image: i.e. "<img src="data:image/png;base64, iVBORw0KGgoA..." etc
+    pub src: String,
+    /// caption / alt text for accessability
+    pub alt: String,
+    /// optional URL for screenshots and downloads
+    pub url: Option<String>,
+}
+
+
+impl Xtchable for Image {
+    fn state_string(&self) -> String {
+        format!("img_id={} src={} alt={} url={:?}", &self.img_id, &self.src, &self.alt, &self.url)
+    }
+}
+
+
+/// For most rendering purposes, image thumbnails will be used (instead of the full image)
+/// Therefore, searching for images by caption is implemented using the Fulltext trait on the thumbnail 
+pub struct Thumbnail {
+    pub img_id: i32,
+    /// base64 encoded image: i.e. "<img src="data:image/png;base64, iVBORw0KGgoA..." etc
+    pub thumb_src: String,
+    /// caption / alt text for accessability
+    pub alt: String,
+}
+
+
+impl FullText for Thumbnail {
+    fn query_fulltext() -> &'static str {
+        "SELECT img_id, thumb_src, atl
+        FROM images
+        WHERE ts @@ to_tsquery('english', $1)
+        LIMIT 20;"
+    }
+
+    fn rowfunc_fulltext(row: &tokio_postgres::Row) -> Self {
+        let img_id: i32 = row.get(0);
+        let thumb_src = row.get(1);
+        let alt: String = row.get(2);
+        Thumbnail{img_id, thumb_src, alt}
+    }
+
+}
+
+
+/// This struct captures a reference from one article (or a paragraph therein)
+/// to another article (or a paragraph therein), with a brief comment as to why
+/// this reference is relevant or what it shows
+#[derive(Serialize, Deserialize)]
+pub struct ArticleRefArticle {
+    /// The primary key for this reference
+    pub aref_id: i32,
+    /// The id of the article making the reference
+    pub from_art: i32,
+    /// optional paragraph specifier if the reference is from one specific paragraph
+    pub from_para: Option<i32>,
+    /// The id of the article being referenced 
+    pub refs_art: i32,
+    /// optional paragraph specifier if the reference is to one specific paragraph 
+    pub refs_para: Option<i32>,
+    /// a brief comment on why this reference is relevant or what the reference shows
+    pub comment: String,
+}
+
+
+impl Xtchable for ArticleRefArticle {
+    fn state_string(&self) -> String {
+        format!("aref_id={} from_art={} from_para={:?} refs_art={} refs_para={:?} comment={}",
+            &self.aref_id, &self.from_art, &self.from_para, &self.refs_art, &self.refs_para, &self.comment)
+    }
+}
+
+
+/// This struct captures a reference from one article (or a paragraph therein)
+/// to a video (with optional timestamp), with a brief comment as to why
+/// this reference is relevant or what it shows 
+#[derive(Deserialize)]
+pub struct ArticleRefVideo {
+    /// The primary key for this reference
+    pub vref_id: i32,
+    /// The article making the reference
+    pub art_id: i32,
+    /// optional paragraph specifier if the reference is from one specific paragraph 
+    pub apara_id: Option<i32>,
+    /// The video being referenced 
+    pub vid_pk: String,
+    /// Optional timestamp (in seconds) within the video 
+    pub sec_req: Option<i16>,
+    /// a brief comment on why this reference is relevant or what the reference shows
+    pub comment: String
+}
+
+
+impl Xtchable for ArticleRefVideo {
+    fn state_string(&self) -> String {
+        format!("vref_id={} art_id={} apara_id={:?} vid_pk={} sec_req={:?} comment={}",
+        &self.vref_id, &self.art_id, &self.apara_id, &self.vid_pk, &self.sec_req, &self.comment)
     }
 }

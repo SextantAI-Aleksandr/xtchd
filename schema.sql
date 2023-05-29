@@ -129,6 +129,43 @@ VALUES (0, 0, '*First Paragraph* of [Initial Article](www.xtchd.com) markdown!',
 	'hex')
 );
 
+
+
+CREATE TABLE IF NOT EXISTS images (
+	/*This table stores images encoded as base64. 
+	Many of them may be screenshots: the url field captures the source in those cases*/
+	prior_id INTEGER,							-- id of the prior image
+	img_id INTEGER NOT NULL PRIMARY KEY,		-- id for this image
+	src TEXT NOT NULL,							-- image source encoded as base64: "<img src="data:image/png;base64, iVBORw0KGgoA..." etc
+	thumb_src TEXT,								-- optional src for a thumbnail version
+	alt VARCHAR NOT NULL,						-- caption / alt text for accessability
+	url VARCHAR,								-- url for a screenshot or image download 
+	prior_sha256 CHAR(64) NOT NULL, 			-- included for checking integrity
+	write_timestamp TIMESTAMPTZ NOT NULL,     	-- timestamp when this row was written 
+	new_sha256 CHAR(64) NOT NULL,				-- new sha256 based on the below constraint
+	UNIQUE(chan_id, new_sha256),				-- this allows the below constraint 
+	ts tsvector GENERATED ALWAYS AS ( to_tsvector('english', alt )) STORED,
+	CONSTRAINT img_prior CHECK ( (img_id = 0) OR ((prior_id IS NOT NULL) AND (prior_id = img_id - 1)) ),
+	CONSTRAINT img_no_delete FOREIGN KEY (prior_id, prior_sha256) REFERENCES images (chan_id, new_sha256),
+	CONSTRAINT img_no_rewrite_later CHECK (EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - write_timestamp)) <= 1),
+	CONSTRAINT img_verify_sha256 CHECK (
+		ENCODE(
+			SHA256(
+				CONCAT(
+					'img_id=', img_id::VARCHAR,
+					' src=', src,
+					' alt=', alt,
+					' url=', url,
+					' write_timestamp=', TO_CHAR(write_timestamp, 'YYYY.MM.DD HH24:MI:SS'),
+					' prior_sha256=', prior_sha256
+				)::BYTEA
+			),
+	'hex') = new_sha256)
+);
+CREATE INDEX image_ts ON images USING GIN(ts);
+
+
+
 CREATE TABLE IF NOT EXISTS youtube_channels (
 	prior_id INTEGER UNIQUE,
 	chan_id INTEGER NOT NULL PRIMARY KEY,
@@ -203,3 +240,90 @@ CREATE TABLE IF NOT EXISTS youtube_videos (
 	'hex') = new_sha256)
 );
 CREATE INDEX ytvid_autocomp ON youtube_videos USING GIN(ac);
+
+
+
+
+CREATE TABLE IF NOT EXISTS article_ref_article (
+	/*When an article (or a paragraph in an article) references another article (with optional paragraph),
+	a row is added to capture that reference */
+	prior_id INTEGER UNIQUE,
+	aref_id INTEGER NOT NULL PRIMARY KEY,
+	from_art INTEGER NOT NULL,						-- the article making the reference
+	from_para INTEGER,								-- (optional) paragraph within the article 
+	refs_art INTEGER NOT NULL,						-- the article being referenced
+	refs_para INTEGER NOT NULL,						-- (optional) paragraph within the article being referenced 
+	comment VARCHAR NOT NULL,						-- a brief explanation of why this is relevant or what it shows
+	prior_sha256 CHAR(64) NOT NULL, 				-- included for checking integrity
+	write_timestamp TIMESTAMPTZ NOT NULL,     
+	new_sha256 CHAR(64) NOT NULL,
+	UNIQUE(aref_id, new_sha256), 					-- this allows the constraint below 
+	ts tsvector GENERATED ALWAYS AS ( to_tsvector('english', comment)) STORED,
+CONSTRAINT arafa FOREIGN KEY (from_art) REFERENCES articles(art_id),
+CONSTRAINT arafp FOREIGN KEY (from_art, from_para) REFERENCES article_para (art_id, apara_id),
+CONSTRAINT arata FOREIGN KEY (refs_art) REFERENCES articles(art_id),
+CONSTRAINT aratp FOREIGN KEY (refs_art, refs_para) REFERENCES article_para (art_id, apara_id),
+CONSTRAINT ara_prior CHECK ( (aref_id = 0) OR ((prior_id IS NOT NULL) AND (prior_id = aref_id - 1)) ),
+CONSTRAINT ara_no_delete FOREIGN KEY (prior_id, prior_sha256) REFERENCES article_ref_article (aref_id, new_sha256),
+CONSTRAINT ara_no_rewrite_later CHECK (EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - write_timestamp)) <= 1),
+CONSTRAINT ara_verify_sha256 CHECK (
+	ENCODE(
+		SHA256(
+			CONCAT(
+				'aref_id=', aref_id::VARCHAR,
+				' from_art=', from_art::VARCHAR,
+				' from_para=', from_para::VARCHAR,
+				' refs_art=', refs_art::VARCHAR,
+				' refs_para=', refs_para::VARCHAR,
+				' comment=', comment,
+				' write_timestamp=', TO_CHAR(write_timestamp, 'YYYY.MM.DD HH24:MI:SS'),
+				' prior_sha256=', prior_sha256
+			)::BYTEA
+		),
+	'hex') = new_sha256)
+); 
+CREATE INDEX aref_com_ts ON article_ref_article USING GIN(ts);
+
+
+
+CREATE TABLE IF NOT EXISTS article_ref_video (
+	/*When an article (or a paragraph in an article) references a youtube video (with an optional timestamp),
+	a row is added to capture that reference */
+	prior_id INTEGER UNIQUE,
+	vref_id INTEGER NOT NULL PRIMARY KEY,
+	art_id INTEGER NOT NULL,						-- the article making the reference
+	apara_id INTEGER,								-- (optional) paragraph within the article 
+	vid_pk CHAR(11) NOT NULL,						-- the vid_pk for the youtube video 
+	sec_req SMALLINT,								-- (optional) requested timestamp in seconds 
+	comment VARCHAR NOT NULL,						-- a brief explanation of why this is relevant or what it shows
+	prior_sha256 CHAR(64) NOT NULL, 				-- included for checking integrity
+	write_timestamp TIMESTAMPTZ NOT NULL,     
+	new_sha256 CHAR(64) NOT NULL,
+	UNIQUE(vref_id, new_sha256), 					-- this allows the constraint below 
+	UNIQUE(vref_id, vid_pk),						-- allows FOREIGN KEY contraits tying vid_pk to the references
+	ts tsvector GENERATED ALWAYS AS ( to_tsvector('english', comment)) STORED,
+CONSTRAINT arrefvar FOREIGN KEY (art_id) REFERENCES articles(art_id),
+CONSTRAINT arrefvap FOREIGN KEY (art_id, apara_id) REFERENCES article_para (art_id, apara_id),
+CONSTRAINT arrefytt FOREIGN KEY (vid_pk) REFERENCES youtube_videos(vid_pk),
+CONSTRAINT arrefv_prior CHECK ( (vref_id = 0) OR ((prior_id IS NOT NULL) AND (prior_id = vref_id - 1)) ),
+CONSTRAINT arrefv_no_delete FOREIGN KEY (prior_id, prior_sha256) REFERENCES article_ref_video (vref_id, new_sha256),
+CONSTRAINT arrefv_no_rewrite_later CHECK (EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - write_timestamp)) <= 1),
+CONSTRAINT arrefv_verify_sha256 CHECK (
+	ENCODE(
+		SHA256(
+			CONCAT(
+				'vref_id=', vref_id::VARCHAR,
+				' art_id=', art_id::VARCHAR,
+				' apara_id=', apara_id::VARCHAR,
+				' vid_pk=', vid_pk,
+				' sec_req=', sec_req::VARCHAR,
+				' comment=', comment,
+				' write_timestamp=', TO_CHAR(write_timestamp, 'YYYY.MM.DD HH24:MI:SS'),
+				' prior_sha256=', prior_sha256
+			)::BYTEA
+		),
+	'hex') = new_sha256)
+); 
+CREATE INDEX vref_com_ts ON article_ref_video USING GIN(ts);
+
+
