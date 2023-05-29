@@ -1,6 +1,7 @@
 use std::vec::Vec;
 use serde::{Serialize, Deserialize};
 use serde_json;
+use tokio_postgres;
 use pachydurable::{autocomplete::{AutoComp, WhoWhatWhere}, fulltext::FullText};
 use crate::{integrity::XtchdContent, xrows};
 
@@ -109,20 +110,41 @@ pub struct References {
     pub images: Vec<ImageRef>,
 }
 
+impl<'a> tokio_postgres::types::FromSql<'a> for References {
+    fn from_sql(_ty: &tokio_postgres::types::Type, raw: &'a [u8]) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
+        let refs: References = serde_json::from_slice(raw)?;
+        Ok(refs)
+    }
+    fn accepts(_ty: &tokio_postgres::types::Type) -> bool {
+        true
+    }
+}
 
-/// An enriched paragraph includes the paragraph content with hash integrity information
+
+/// An enriched paragraph includes the paragraph content
 /// as well as references and topics extracted using NLP
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct EnrichedPara {
     pub para: XtchdContent<xrows::ArticlePara>,
     pub references: References,
     pub topics: Vec<Topic>,
 }
 
+impl<'a> tokio_postgres::types::FromSql<'a> for EnrichedPara {
+    fn from_sql(_ty: &tokio_postgres::types::Type, raw: &'a [u8]) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
+        let epara: EnrichedPara = serde_json::from_slice(raw)?;
+        Ok(epara)
+    }
+    fn accepts(_ty: &tokio_postgres::types::Type) -> bool {
+        true
+    }
+}
+
+
 
 /// An enriched article includes identifying information for the article title and author along with hash integrity information
 /// As well enriched paragraphs and references to the article as a whole
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct EnrichedArticle {
     /// The title and identification of the author of the article
     pub author: XtchdContent<xrows::Author>,
@@ -132,6 +154,17 @@ pub struct EnrichedArticle {
     pub references: References,
     /// Each of the paragraphs from the article, enriched with references and with topics extracted using NLP
     pub paragraphs: Vec<EnrichedPara>,
+}
+
+
+impl<'a> tokio_postgres::types::FromSql<'a> for EnrichedArticle {
+    fn from_sql(_ty: &tokio_postgres::types::Type, raw: &'a [u8]) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
+        let ea: EnrichedArticle = serde_json::from_slice(raw)?;
+        Ok(ea)
+    }
+    fn accepts(_ty: &tokio_postgres::types::Type) -> bool {
+        true
+    }
 }
 
 

@@ -258,6 +258,15 @@ pub struct ArticleRefArticle {
     pub refs_para: Option<i32>,
 }
 
+impl ArticleRefArticle {
+    pub fn from_req(req: ArticleRefArticleReq, aref_id: i32) -> Self {
+        let rf = req.rf;
+        let refs_art = req.refs_art;
+        let refs_para = req.refs_para;
+        ArticleRefArticle{aref_id, rf, refs_art, refs_para}
+    }
+}
+
 
 impl Xtchable for ArticleRefArticle {
     fn state_string(&self) -> String {
@@ -266,6 +275,19 @@ impl Xtchable for ArticleRefArticle {
     }
 }
 
+
+/// This struct is the same as ArticleRefArticle but without the aref_id which needs 
+/// to be generated.  
+/// This struct is passed via http when authors are adding references to an article.
+#[derive(Deserialize)]
+pub struct ArticleRefArticleReq {
+    /// The article making the reference and why it was made
+    pub rf: RefFrom,
+    /// The id of the article being referenced 
+    pub refs_art: i32,
+    /// optional paragraph specifier if the reference is to one specific paragraph 
+    pub refs_para: Option<i32>,
+}
 
 
 /// This struct captures a reference from one article (or a paragraph therein)
@@ -284,12 +306,35 @@ pub struct ArticleRefVideo {
 }
 
 
+impl ArticleRefVideo {
+    pub fn from_req(req: ArticleRefVideoReq, vref_id: i32) -> Self {
+        let rf = req.rf;
+        let vid_pk = req.vid_pk;
+        let sec_req = req.sec_req;
+        ArticleRefVideo{vref_id, rf, vid_pk, sec_req}
+    }
+}
+
 impl Xtchable for ArticleRefVideo {
     fn state_string(&self) -> String {
         format!("vref_id={} art_id={} apara_id={:?} vid_pk={} sec_req={:?} comment={}",
-        &self.vref_id, &self.rf.art_id, &self.rf.apara_id, &self.vid_pk, &self.sec_req, &self.rf.comment)
+            &self.vref_id, &self.rf.art_id, &self.rf.apara_id, &self.vid_pk, &self.sec_req, &self.rf.comment)
     }
 }
+
+/// This struct is the same as ArticleRefVideo but without the vref_id
+/// which needs to be generated  
+/// This struct is passed via http when authors are adding references to an article.
+#[derive(Deserialize)]
+pub struct ArticleRefVideoReq {
+    /// The article making the reference and why it was made
+    pub rf: RefFrom,
+    /// The video being referenced 
+    pub vid_pk: String,
+    /// Optional timestamp (in seconds) within the video 
+    pub sec_req: Option<i16>,
+}
+
 
 
 
@@ -302,8 +347,33 @@ pub struct ArticleRefImage {
     pub iref_id: i32,
     /// The article making the reference and why it was made
     pub rf: RefFrom,
-    /// The video being referenced 
-    pub vid_pk: String,
-    /// Optional timestamp (in seconds) within the video 
-    pub sec_req: Option<i16>,
+    /// The id for the video being referenced
+    pub img_id: i32,
+}
+
+impl ArticleRefImage {
+    pub fn from_req(req: ArticleRefImageReq, iref_id: i32) -> Self {
+        let rf = req.rf;
+        let img_id = req.img_id;
+        ArticleRefImage{iref_id, rf, img_id}
+    }
+}
+
+
+impl Xtchable for ArticleRefImage {
+    fn state_string(&self) -> String {
+        format!("iref_id={} art_id={} apara_id={:?} img_id={} comment={}",
+            &self.iref_id, &self.rf.art_id, &self.rf.apara_id, &self.img_id, &self.rf.comment)
+    }
+}
+
+/// This struct is the same as ArticleRefImage but without the iref_id
+/// which needs to be generated.  
+/// This struct is passed via http when authors are adding references to an article.
+#[derive(Deserialize)]
+pub struct ArticleRefImageReq {
+    /// The article making the reference and why it was made
+    pub rf: RefFrom,
+    /// The id for the video being referenced
+    pub img_id: i32,
 }

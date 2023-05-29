@@ -3,8 +3,6 @@
 //! with cryptographic verification. 
 
 use chrono::{NaiveDate, DateTime, offset::Utc};
-
-// use postgres::types::ToSql;
 use pachydurable::{connect::{ConnPoolNoTLS, ClientNoTLS, pool_no_tls_from_env}, err::DiskError};
 use crate::{xrows, views, integrity::{XtchdContent, HashChainLink}};
 
@@ -71,7 +69,6 @@ pub struct Xtchr {
 
 impl Xtchr {
 
-
     /// This method is called to get the most recent articles (but not the associated text)
     /// Think of it as giving the headline for the most recent articles
     pub async fn latest_headlines(&self) -> Result<Vec<xrows::Article>, DiskError> {
@@ -103,6 +100,7 @@ impl Xtchr {
         Ok(views::ArticleDetail{author, article, paragraphs})
     }
 
+
     /// Get the detail for one author, specified by auth_id
     pub async fn author_detail(&self, auth_id: i32) -> Result<views::AuthorDetail, DiskError> {
         let query = "SELECT prior_id, name, prior_sha256, write_timestamp, new_sha256, authored
@@ -124,6 +122,20 @@ impl Xtchr {
     }
 
 
+    /// Get an enriched article struct given the article id 
+    pub async fn enriched_article(&self, art_id: i32) -> Result<views::EnrichedArticle, DiskError> {
+        let query = "QUERY TBD where art_id = $1";
+        let rows = self.c.query(query, &[&art_id]).await?;
+        let row = match rows.get(0) {
+            Some(val) => val,
+            None => return Err(DiskError::missing_row())
+        };
+        let ea: views::EnrichedArticle = row.get(0);
+        Ok(ea)
+
+    }
+
+
     // add an author
     pub async fn add_author(&self, name: &str) -> Result<(xrows::Author, HashChainLink), DiskError> {
         let last_author = get_last_row(&self.c, "SELECT auth_id, new_sha256 FROM authors ORDER BY auth_id DESC LIMIT 1").await.unwrap();
@@ -138,6 +150,7 @@ impl Xtchr {
         ).await.unwrap();
         Ok((author, hclink))
     }
+
 
     // add an article (but not the text thereof)
     pub async fn add_article(&self, auth_id: i32, title: &str) -> Result<(xrows::Article, HashChainLink), DiskError> {
@@ -170,6 +183,7 @@ impl Xtchr {
         Ok((para, hclink))
     }
 
+
     // create a new record for a youtube channel
     pub async fn add_youtube_channel(&self, url: &str, name: &str) -> Result<(xrows::YoutubeChannel, HashChainLink), DiskError> {
         let last_chan = get_last_row(&self.c, "SELECT chan_id, new_sha256 FROM youtube_channels ORDER BY chan_id DESC LIMIT 1").await.unwrap();
@@ -185,6 +199,7 @@ impl Xtchr {
         ).await.unwrap();
         Ok((chan, hclink))
     }
+
 
     // create a new record for a youtube video 
     pub async fn add_youtube_video(&self, chan_id: i32, vid_pk: &str, title: &str, date_uploaded: &NaiveDate) -> Result<(xrows::YoutubeVideo, HashChainLink), DiskError> {
@@ -205,6 +220,43 @@ impl Xtchr {
     }
 
 
+    /// add a reference from an article to an article, returning the aref_id
+    pub async fn add_ref_article(&self, req: xrows::ArticleRefArticleReq) -> Result<i32, DiskError> {
+        let last_ref = get_last_row(&self.c, "SELECT aref_id, new_sha256 FROM article_ref_article ORDER BY aref_id DESC LIMIT 1").await.unwrap();
+        let aref_id = last_ref.next_id();
+        let aref = xrows::ArticleRefArticle::from_req(req, aref_id);
+        let hclink = HashChainLink::new(&last_ref.prior_sha256, &aref);
+        let _x = self.c.execute("INSERT INTO article_ref_article 
+            (                       prior_id,  aref_id,       from_art,         from_para,       refs_art,       refs_para,          comment,           prior_sha256,         write_timestamp,          new_sha256) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+                &[&last_ref.prior_id, &aref_id, &aref.rf.art_id, &aref.rf.apara_id, &aref.refs_art, &aref.refs_para, &aref.rf.comment, &last_ref.prior_sha256, &hclink.write_timestamp, &hclink.new_sha256()]).await.unwrap();
+        Ok(aref_id)
+    }
+
+
+    /// add a reference from an article to a video, returning the vref_id
+    pub async fn add_ref_video(&self, req: xrows::ArticleRefVideoReq) -> Result<i32, DiskError> {
+        let last_ref = get_last_row(&self.c, "SELECT vref_id, new_sha256 FROM article_ref_article ORDER BY vref_id DESC LIMIT 1").await.unwrap();
+        let vref_id = last_ref.next_id();
+        let vref = xrows::ArticleRefVideo::from_req(req, vref_id);
+        let hclink = HashChainLink::new(&last_ref.prior_sha256, &vref);
+        let _x = self.c.execute("INSERT INTO article_ref_video 
+            (                  prior_id,  vref_id,          art_id,          apara_id,       vid_pk,       sec_req,          comment,           prior_sha256,         write_timestamp,         new_sha256) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+            &[&last_ref.prior_id, &vref_id, &vref.rf.art_id, &vref.rf.apara_id, &vref.vid_pk, &vref.sec_req, &vref.rf.comment, &last_ref.prior_sha256, &hclink.write_timestamp, &hclink.new_sha256()]).await.unwrap();
+        Ok(vref_id)
+    }
+
+
+    /// add a reference from an article to an image, returning the iref_id
+    pub async fn add_ref_image(&self, req: xrows::ArticleRefImageReq) -> Result<i32, DiskError> {
+        let last_ref = get_last_row(&self.c, "SELECT iref_id, new_sha256 FROM article_ref_article ORDER BY iref_id DESC LIMIT 1").await.unwrap();
+        let iref_id = last_ref.next_id();
+        let iref = xrows::ArticleRefImage::from_req(req, iref_id);
+        let hclink = HashChainLink::new(&last_ref.prior_sha256, &iref);
+        let _x = self.c.execute("INSERT INTO article_ref_image 
+            (                  prior_id,  iref_id,          art_id,          apara_id,       img_id,          comment,           prior_sha256,         write_timestamp,         new_sha256) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+            &[&last_ref.prior_id, &iref_id, &iref.rf.art_id, &iref.rf.apara_id, &iref.img_id, &iref.rf.comment, &last_ref.prior_sha256, &hclink.write_timestamp, &hclink.new_sha256()]).await.unwrap();
+        Ok(iref_id)
+    }
 }
 
 

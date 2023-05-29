@@ -39,7 +39,7 @@ pub trait Xtchable {
 /// This data is used in Postgres to cryptographically verify the integrity of the row being written. 
 /// When the corresponding row is read back from disk, the content can be "wrapped" in a XtchdContent struct 
 /// to allow demonstration of the new_sha256 matching the calculated sha256 (typically in JavaScript in the user's browser.)
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct XtchdContent<T: Xtchable> {
     pub prior_id: Option<i32>, // must only be None for the very first entry 
     pub prior_sha256: String,
