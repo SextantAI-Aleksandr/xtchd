@@ -223,6 +223,34 @@ impl Xtchable for ImmutableImage {
 }
 
 
+/// This struct is useful for autocompletion of results for immutable images 
+#[derive(Serialize)]
+pub struct ImageThumbnail {
+    pub img_id: i32,
+    pub src_thmb: String,
+}
+
+
+impl AutoComp<ImageThumbnail> for ImmutableImage {
+    fn query_autocomp() ->  &'static str {
+        "SELECT img_id, alt, src_thmb
+        FROM images
+        WHERE ts @@ to_tsquery('english', $1)
+        ORDER BY LENGTH(alt) ASC 
+        LIMIT 10;"
+    }
+
+    fn rowfunc_autocomp(row: &tokio_postgres::Row) -> WhoWhatWhere<ImageThumbnail> {
+        let data_type = "image";
+        let img_id: i32 = row.get(0);
+        let name: String = row.get(1);
+        let src_thmb: String = row.get(2);
+        let pk = ImageThumbnail{img_id, src_thmb};
+        WhoWhatWhere{data_type, pk, name}
+    }
+}
+
+
 /// For most rendering purposes, image thumbnails will be used (instead of the full image)
 /// Therefore, searching for images by caption is implemented using the Fulltext trait on the thumbnail 
 pub struct Thumbnail {
