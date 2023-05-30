@@ -6,10 +6,15 @@ use pachydurable::{autocomplete::{AutoComp, WhoWhatWhere}, fulltext::FullText};
 use crate::{integrity::XtchdContent, xrows};
 
 
+/// The ArticleText struct contains the auth, title, and paragraph texts for an article.
+/// Compare to the EnrichedArticle struct, which also contains references and extracted topics
 #[derive(Serialize)]
-pub struct ArticleDetail {
+pub struct ArticleText {
+    /// The author + hash integrity information
     pub author: XtchdContent<xrows::Author>,
+    /// The article id/title + hash integrity information
     pub article: XtchdContent<xrows::Article>,
+    /// The text of each paragraph + hash integrity information
     pub paragraphs: Vec<XtchdContent<xrows::ArticlePara>>,
 }
 

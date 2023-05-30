@@ -10,7 +10,8 @@ CREATE VIEW author_detail AS (
 );
 
 
-CREATE VIEW article_detail AS (
+CREATE VIEW article_text AS (
+    -- this view yields the view.rs::ArticleText struct
     WITH paragraphs AS (
         SELECT art_id, ARRAY_AGG(JSON_BUILD_OBJECT('prior_id', prior_id,
             'content', JSON_BUILD_OBJECT('art_id', art_id, 'apara_id', apara_id, 'md', md),

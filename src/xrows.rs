@@ -181,11 +181,13 @@ impl AutoComp<String> for YoutubeVideo {
 /// NOTE: The SQL schema also references a thumbnail src, which is what will typically be
 /// rendered unless the user clicks on the image to see the full version 
 #[derive(Serialize, Deserialize)]
-pub struct Image {
+pub struct NewImagePair {
     /// The id for this image
     pub img_id: i32,
-    /// base64 encoded image: i.e. "<img src="data:image/png;base64, iVBORw0KGgoA..." etc
-    pub src: String,
+    /// base64 encoded full image: i.e. "<img src="data:image/png;base64, iVBORw0KGgoA..." etc
+    pub src_full: String,
+    /// base64 encoded thumbnail: i.e. "<img src="data:image/png;base64, iVBORw0KGgoA..." etc
+    pub src_thmb: String,
     /// caption / alt text for accessability
     pub alt: String,
     /// optional URL for screenshots and downloads
@@ -193,9 +195,9 @@ pub struct Image {
 }
 
 
-impl Xtchable for Image {
+impl Xtchable for NewImagePair {
     fn state_string(&self) -> String {
-        format!("img_id={} src={} alt={} url={:?}", &self.img_id, &self.src, &self.alt, &self.url)
+        format!("img_id={} src_full={} src_thmb={} alt={} url={:?}", &self.img_id, &self.src_full, &self.src_thmb, &self.alt, &self.url)
     }
 }
 

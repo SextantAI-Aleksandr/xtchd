@@ -87,8 +87,8 @@ impl Xtchr {
 
 
     /// Get one article, specified by id 
-    pub async fn article_detail(&self, art_id: i32) -> Result<views::ArticleDetail, DiskError> {
-        let query = "SELECT author, article, art_paras FROM article_detail WHERE art_id = $1";
+    pub async fn article_text(&self, art_id: i32) -> Result<views::ArticleText, DiskError> {
+        let query = "SELECT author, article, art_paras FROM article_text WHERE art_id = $1";
         let rows = self.c.query(query, &[&art_id]).await?;
         let row = match rows.get(0) {
             Some(val) => val,
@@ -97,7 +97,7 @@ impl Xtchr {
         let author: XtchdContent<xrows::Author> = row.get(0);
         let article: XtchdContent<xrows::Article> = row.get(1);
         let paragraphs: Vec<XtchdContent<xrows::ArticlePara>> = row.get(2);
-        Ok(views::ArticleDetail{author, article, paragraphs})
+        Ok(views::ArticleText{author, article, paragraphs})
     }
 
 
@@ -285,10 +285,10 @@ mod tests {
         rt.block_on(async {
             let pool = Pool::new_from_env().await;
             let x = pool.get().await.unwrap();
-            let ad = x.article_detail(0).await.unwrap();
-            assert_eq!(&ad.author.content.name, &"Xtchd Admins".to_string());
-            assert_eq!(&ad.article.content.title, &"Initial Article".to_string());
-            assert_eq!(&ad.paragraphs.len(), &1);
+            let atxt = x.article_text(0).await.unwrap();
+            assert_eq!(&atxt.author.content.name, &"Xtchd Admins".to_string());
+            assert_eq!(&atxt.article.content.title, &"Initial Article".to_string());
+            assert_eq!(&atxt.paragraphs.len(), &1);
         });
     }
 }

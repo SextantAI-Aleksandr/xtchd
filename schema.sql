@@ -131,13 +131,27 @@ VALUES (0, 0, '*First Paragraph* of [Initial Article](www.xtchd.com) markdown!',
 
 
 
+CREATE TABLE IF NOT EXISTS images_mut (
+	/*This table stores images that are mutable- i.e. the rows can be deleted or changed
+	This is typically used for article thumbnails, where the choice of image is a bit arbitrary
+	and is not the main content of the article.*/
+	mutimg_id CHAR(16) NOT NULL PRIMARY KEY,	-- nanoID 
+	src_full TEXT NOT NULL,				 		-- image source encoded as base64: "<img src="data:image/png;base64, iVBORw0KGgoA..." etc
+	src_thmb TEXT NOT NULL,						-- thumbnail source encoded as base64: "<img src="data:image/png;base64, iVBORw0KGgoA..." etc
+	alt VARCHAR NOT NULL,						-- caption / alt text for accessability
+	url VARCHAR,								-- url for a screenshot or image download 
+	ts tsvector GENERATED ALWAYS AS ( to_tsvector('english', alt )) STORED
+);
+
+
+
 CREATE TABLE IF NOT EXISTS images (
 	/*This table stores images encoded as base64. 
 	Many of them may be screenshots: the url field captures the source in those cases*/
 	prior_id INTEGER,							-- id of the prior image
 	img_id INTEGER NOT NULL PRIMARY KEY,		-- id for this image
-	src TEXT NOT NULL,							-- image source encoded as base64: "<img src="data:image/png;base64, iVBORw0KGgoA..." etc
-	thumb_src TEXT,								-- optional src for a thumbnail version
+	src_full TEXT NOT NULL,						-- image source encoded as base64: "<img src="data:image/png;base64, iVBORw0KGgoA..." etc
+	src_thmb TEXT NOT NULL,						-- thumbnail source encoded as base64: "<img src="data:image/png;base64, iVBORw0KGgoA..." etc
 	alt VARCHAR NOT NULL,						-- caption / alt text for accessability
 	url VARCHAR,								-- url for a screenshot or image download 
 	prior_sha256 CHAR(64) NOT NULL, 			-- included for checking integrity
@@ -153,7 +167,8 @@ CREATE TABLE IF NOT EXISTS images (
 			SHA256(
 				CONCAT(
 					'img_id=', img_id::VARCHAR,
-					' src=', src,
+					' src_full=', src_full,
+					' src_thmb=', src_thmb,
 					' alt=', alt,
 					' url=', url,
 					' write_timestamp=', TO_CHAR(write_timestamp, 'YYYY.MM.DD HH24:MI:SS'),
