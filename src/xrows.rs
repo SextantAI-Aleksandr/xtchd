@@ -8,7 +8,7 @@ use serde::{Serialize, Deserialize};
 use serde_json;
 use tokio_postgres;
 use pachydurable::{autocomplete::{AutoComp, WhoWhatWhere}, fulltext::FullText};
-use crate::integrity::Xtchable;
+use crate::integrity::{Xtchable, nonefmt};
 
 
 #[derive(Serialize, Deserialize)]
@@ -217,7 +217,8 @@ pub struct ImmutableImage {
 
 impl Xtchable for ImmutableImage {
     fn state_string(&self) -> String {
-        format!("img_id={} src_full={} src_thmb={} alt={} url={:?}", &self.img_id, &self.pair.src_full, &self.pair.src_thmb, &self.pair.alt, &self.pair.url)
+        format!("img_id={} src_full={} src_thmb={} alt={} url={}",
+            &self.img_id, &self.pair.src_full, &self.pair.src_thmb, &self.pair.alt, nonefmt(&self.pair.url))
     }
 }
 
@@ -292,8 +293,8 @@ impl ArticleRefArticle {
 
 impl Xtchable for ArticleRefArticle {
     fn state_string(&self) -> String {
-        format!("aref_id={} from_art={} from_para={:?} refs_art={} refs_para={:?} comment={}",
-            &self.aref_id, &self.rf.art_id, &self.rf.apara_id, &self.refs_art, &self.refs_para, &self.rf.comment)
+        format!("aref_id={} from_art={} from_para={} refs_art={} refs_para={} comment={}",
+            &self.aref_id, &self.rf.art_id, nonefmt(&self.rf.apara_id), &self.refs_art, nonefmt(&self.refs_para), &self.rf.comment)
     }
 }
 
@@ -339,8 +340,8 @@ impl ArticleRefVideo {
 
 impl Xtchable for ArticleRefVideo {
     fn state_string(&self) -> String {
-        format!("vref_id={} art_id={} apara_id={:?} vid_pk={} sec_req={:?} comment={}",
-            &self.vref_id, &self.rf.art_id, &self.rf.apara_id, &self.vid_pk, &self.sec_req, &self.rf.comment)
+        format!("vref_id={} art_id={} apara_id={} vid_pk={} sec_req={} comment={}",
+            &self.vref_id, &self.rf.art_id, nonefmt(&self.rf.apara_id), &self.vid_pk, nonefmt(&self.sec_req), &self.rf.comment)
     }
 }
 
@@ -384,8 +385,8 @@ impl ArticleRefImage {
 
 impl Xtchable for ArticleRefImage {
     fn state_string(&self) -> String {
-        format!("iref_id={} art_id={} apara_id={:?} img_id={} comment={}",
-            &self.iref_id, &self.rf.art_id, &self.rf.apara_id, &self.img_id, &self.rf.comment)
+        format!("iref_id={} art_id={} apara_id={} img_id={} comment={}",
+            &self.iref_id, &self.rf.art_id, nonefmt(&self.rf.apara_id), &self.img_id, &self.rf.comment)
     }
 }
 

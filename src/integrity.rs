@@ -7,6 +7,20 @@ use sha2::{Sha256, Digest}; // Digest brings the ::new() method into scope
 use chrono::{DateTime, offset::Utc};
 
 
+/// Rust does not allow Options to be displayed using the "{}" format
+/// They can be displayed with the {:?} format, but this wraps the Some variant in 'Some()'
+/// and returns 'None' for the None variant.  
+/// In contrast, Postgres renders NULL values as simply "" in string formatting.   
+/// To ensure that hash values calculated using the Xtchable trait match those implemented with
+/// Postgres constraints, the nonefmt function returns a blank string for None variants
+/// and removes the Some() wrapper for Some variants 
+pub fn nonefmt<T: std::fmt::Display>(opt: &Option<T>) -> String {
+    match opt {
+        Some(val) => format!("{}", val),
+        None => String::new(),
+    }
+}
+
 pub fn now() -> DateTime<Utc> {
     // Give the current Utc tie
     Utc::now()
@@ -119,6 +133,5 @@ impl HashChainLink {
         sha256(&self.string_to_hash)
     }
 }
-
 
 
