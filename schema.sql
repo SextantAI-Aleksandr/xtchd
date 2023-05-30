@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS authors (
 	prior_sha256 CHAR(64) NOT NULL, -- included for checking integrity
 	write_timestamp TIMESTAMPTZ NOT NULL,     
 	new_sha256 CHAR(64) NOT NULL,
-	UNIQUE(auth_id, new_sha256), -- this allows the constraint below 
+	UNIQUE(auth_id, new_sha256), -- this allows the no_delete constraint below 
 	ac tsvector GENERATED ALWAYS AS ( to_tsvector('simple', name )) STORED,
 CONSTRAINT auth_prior CHECK ( (auth_id = 0) OR ((prior_id IS NOT NULL) AND (prior_id = auth_id - 1)) ),
 CONSTRAINT auth_no_delete FOREIGN KEY (prior_id, prior_sha256) REFERENCES authors (auth_id, new_sha256),
@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS articles (
 	prior_sha256 CHAR(64) NOT NULL, -- included for checking integrity
 	write_timestamp TIMESTAMPTZ NOT NULL,     
 	new_sha256 CHAR(64) NOT NULL,
-	UNIQUE(art_id, new_sha256), -- this allows the constraint below 
+	UNIQUE(art_id, new_sha256), -- this allows the no_delete constraint below 
 	ac tsvector GENERATED ALWAYS AS ( to_tsvector('simple', title )) STORED,
 CONSTRAINT art_auth FOREIGN KEY (auth_id) REFERENCES authors(auth_id),
 CONSTRAINT art_prior CHECK ( (art_id = 0) OR ((prior_id IS NOT NULL) AND (prior_id = art_id - 1)) ),
@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS article_para (
 	write_timestamp TIMESTAMPTZ NOT NULL,     
 	new_sha256 CHAR(64) NOT NULL,
 	PRIMARY KEY (art_id, apara_id),
-	UNIQUE(apara_id, new_sha256), -- this allows the constraint below 
+	UNIQUE(apara_id, new_sha256), -- this allows the no_delete constraint below 
 	ts tsvector GENERATED ALWAYS AS ( to_tsvector('english', md)) STORED,
 CONSTRAINT apapa_art FOREIGN KEY (art_id) REFERENCES articles(art_id),
 CONSTRAINT apara_prior CHECK ( (apara_id = 0) OR ((prior_id IS NOT NULL) AND (prior_id = apara_id - 1)) ),
@@ -157,10 +157,10 @@ CREATE TABLE IF NOT EXISTS images (
 	prior_sha256 CHAR(64) NOT NULL, 			-- included for checking integrity
 	write_timestamp TIMESTAMPTZ NOT NULL,     	-- timestamp when this row was written 
 	new_sha256 CHAR(64) NOT NULL,				-- new sha256 based on the below constraint
-	UNIQUE(chan_id, new_sha256),				-- this allows the below constraint 
+	UNIQUE(img_id, new_sha256),				-- this allows the below constraint 
 	ts tsvector GENERATED ALWAYS AS ( to_tsvector('english', alt )) STORED,
 	CONSTRAINT img_prior CHECK ( (img_id = 0) OR ((prior_id IS NOT NULL) AND (prior_id = img_id - 1)) ),
-	CONSTRAINT img_no_delete FOREIGN KEY (prior_id, prior_sha256) REFERENCES images (chan_id, new_sha256),
+	CONSTRAINT img_no_delete FOREIGN KEY (prior_id, prior_sha256) REFERENCES images (img_id, new_sha256),
 	CONSTRAINT img_no_rewrite_later CHECK (EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - write_timestamp)) <= 1),
 	CONSTRAINT img_verify_sha256 CHECK (
 		ENCODE(
@@ -272,7 +272,7 @@ CREATE TABLE IF NOT EXISTS article_ref_article (
 	prior_sha256 CHAR(64) NOT NULL, 				-- included for checking integrity
 	write_timestamp TIMESTAMPTZ NOT NULL,     
 	new_sha256 CHAR(64) NOT NULL,
-	UNIQUE(aref_id, new_sha256), 					-- this allows the constraint below 
+	UNIQUE(aref_id, new_sha256), 					-- this allows the no_delete constraint below 
 	ts tsvector GENERATED ALWAYS AS ( to_tsvector('english', comment)) STORED,
 CONSTRAINT arafa FOREIGN KEY (from_art) REFERENCES articles(art_id),
 CONSTRAINT arafp FOREIGN KEY (from_art, from_para) REFERENCES article_para (art_id, apara_id),
@@ -314,7 +314,7 @@ CREATE TABLE IF NOT EXISTS article_ref_video (
 	prior_sha256 CHAR(64) NOT NULL, 				-- included for checking integrity
 	write_timestamp TIMESTAMPTZ NOT NULL,     
 	new_sha256 CHAR(64) NOT NULL,
-	UNIQUE(vref_id, new_sha256), 					-- this allows the constraint below 
+	UNIQUE(vref_id, new_sha256), 					-- this allows the no_delete constraint below 
 	UNIQUE(vref_id, vid_pk),						-- allows FOREIGN KEY contraits tying vid_pk to the references
 	ts tsvector GENERATED ALWAYS AS ( to_tsvector('english', comment)) STORED,
 CONSTRAINT arrefvar FOREIGN KEY (art_id) REFERENCES articles(art_id),
@@ -356,13 +356,13 @@ CREATE TABLE IF NOT EXISTS article_ref_image (
 	prior_sha256 CHAR(64) NOT NULL, 				-- included for checking integrity
 	write_timestamp TIMESTAMPTZ NOT NULL,     
 	new_sha256 CHAR(64) NOT NULL,
-	UNIQUE(iref_id, new_sha256), 					-- this allows the constraint below 
+	UNIQUE(iref_id, new_sha256), 					-- this allows the imref_no_delete constraint below 
 	ts tsvector GENERATED ALWAYS AS ( to_tsvector('english', comment)) STORED,
 CONSTRAINT imrefar FOREIGN KEY (art_id) REFERENCES articles(art_id),
 CONSTRAINT imrefpa FOREIGN KEY (art_id, apara_id) REFERENCES article_para (art_id, apara_id),
 CONSTRAINT imrefim FOREIGN KEY (img_id) REFERENCES images (img_id),
-CONSTRAINT imref_prior CHECK ( (img_id = 0) OR ((prior_id IS NOT NULL) AND (prior_id = img_id - 1)) ),
-CONSTRAINT imref_no_delete FOREIGN KEY (prior_id, prior_sha256) REFERENCES article_ref_image (img_id, new_sha256),
+CONSTRAINT imref_prior CHECK ( (iref_id = 0) OR ((prior_id IS NOT NULL) AND (prior_id = iref_id - 1)) ),
+CONSTRAINT imref_no_delete FOREIGN KEY (prior_id, prior_sha256) REFERENCES article_ref_image (iref_id, new_sha256),
 CONSTRAINT imref_no_rewrite_later CHECK (EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - write_timestamp)) <= 1),
 CONSTRAINT imref_verify_sha256 CHECK (
 	ENCODE(
@@ -379,7 +379,7 @@ CONSTRAINT imref_verify_sha256 CHECK (
 		),
 	'hex') = new_sha256)
 ); 
-CREATE INDEX vref_com_ts ON article_ref_video USING GIN(ts);
+CREATE INDEX iref_com_ts ON article_ref_image USING GIN(ts);
 
 
 CREATE TABLE IF NOT EXISTS nlp_topic_pos (
