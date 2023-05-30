@@ -135,7 +135,7 @@ CREATE TABLE IF NOT EXISTS images_mut (
 	/*This table stores images that are mutable- i.e. the rows can be deleted or changed
 	This is typically used for article thumbnails, where the choice of image is a bit arbitrary
 	and is not the main content of the article.*/
-	mutimg_id CHAR(16) NOT NULL PRIMARY KEY,	-- nanoID 
+	id CHAR(16) NOT NULL PRIMARY KEY,	-- nanoID 
 	src_full TEXT NOT NULL,				 		-- image source encoded as base64: "<img src="data:image/png;base64, iVBORw0KGgoA..." etc
 	src_thmb TEXT NOT NULL,						-- thumbnail source encoded as base64: "<img src="data:image/png;base64, iVBORw0KGgoA..." etc
 	alt VARCHAR NOT NULL,						-- caption / alt text for accessability

@@ -220,6 +220,29 @@ impl Xtchr {
     }
 
 
+    /// add a new immutable image/thumbnail pair, returning the img_id
+    pub async fn add_image_immutable(&self, pair: xrows::ImagePair) -> Result<i32, DiskError> {
+        let last_ref = get_last_row(&self.c, "SELECT img_id, new_sha256 FROM images ORDER BY img_id DESC LIMIT 1").await.unwrap();
+        let img_id = last_ref.next_id();
+        let ii = xrows::ImmutableImage{img_id, pair};
+        let hclink = HashChainLink::new(&last_ref.prior_sha256, &ii);
+        let _x = self.c.execute("INSERT INTO images 
+            (                  prior_id,  img_id,          src_full,          src_thmb,          alt,          url,           prior_sha256,         write_timestamp,          new_sha256) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+            &[&last_ref.prior_id, &img_id, &ii.pair.src_full, &ii.pair.src_thmb, &ii.pair.alt, &ii.pair.url, &last_ref.prior_sha256, &hclink.write_timestamp, &hclink.new_sha256()]).await?;
+        Ok(img_id)
+    }
+
+
+    /// add or update a new mutable image/thumbnail pair 
+    pub async fn add_image_mutable(&self, mi: &xrows::MutableImage) -> Result<(), DiskError> {
+        let _x = self.c.execute("INSERT INTO images_mut
+            (            id,          src_full,          src_thmb,          alt,          url) VALUES ($1, $2, $3, $4, $5)
+                ON CONFLICT(id) DO UPDATE SET src_full = $2, src_thmb = $3, alt = $4, url = $5",
+            &[&mi.id, &mi.pair.src_full, &mi.pair.src_thmb, &mi.pair.alt, &mi.pair.url]).await?;
+        Ok(())
+    }
+
+
     /// add a reference from an article to an article, returning the aref_id
     pub async fn add_ref_article(&self, req: xrows::ArticleRefArticleReq) -> Result<i32, DiskError> {
         let last_ref = get_last_row(&self.c, "SELECT aref_id, new_sha256 FROM article_ref_article ORDER BY aref_id DESC LIMIT 1").await.unwrap();

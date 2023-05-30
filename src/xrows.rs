@@ -176,14 +176,12 @@ impl AutoComp<String> for YoutubeVideo {
 
 
 
-/// This struct is processed when saving an image which will have a 
-/// sha256 hash calcualted to prove it has not been tampered.  
-/// NOTE: The SQL schema also references a thumbnail src, which is what will typically be
-/// rendered unless the user clicks on the image to see the full version 
+/// Images can be saved to either the images table (where they are immutable and have a sha256 value calculated)
+/// or the images_mut table(where they are mutable and have not sha256 calculated).
+/// In either case, they are provided as both a full image and a thumbnail, with a 
+/// src/caption value and optional URL where they came from 
 #[derive(Serialize, Deserialize)]
-pub struct NewImagePair {
-    /// The id for this image
-    pub img_id: i32,
+pub struct ImagePair {
     /// base64 encoded full image: i.e. "<img src="data:image/png;base64, iVBORw0KGgoA..." etc
     pub src_full: String,
     /// base64 encoded thumbnail: i.e. "<img src="data:image/png;base64, iVBORw0KGgoA..." etc
@@ -195,9 +193,31 @@ pub struct NewImagePair {
 }
 
 
-impl Xtchable for NewImagePair {
+/// MutableImages are typically used for article thumbnails:
+/// i.e. they are a bit arbitrary and only need to roughly indicate the content of the article
+#[derive(Deserialize)]
+pub struct MutableImage {
+    /// a CHAR(16) nanoID, no need to be sequential
+    pub id: String,
+    /// The image pair being saved 
+    pub pair: ImagePair
+}
+
+
+/// An ImmutableImage is used for images within an article. The assumption is that 
+/// the image "matters" and needs to "prove a point" (in contrast to MutableImages),
+/// Hence the Xtchable trait is implemented so that the integrity of an ImmutableImage can be verified 
+pub struct ImmutableImage {
+    /// an image_id provided by the database 
+    pub img_id: i32,
+    /// the image pair being saved 
+    pub pair: ImagePair,
+}
+
+
+impl Xtchable for ImmutableImage {
     fn state_string(&self) -> String {
-        format!("img_id={} src_full={} src_thmb={} alt={} url={:?}", &self.img_id, &self.src_full, &self.src_thmb, &self.alt, &self.url)
+        format!("img_id={} src_full={} src_thmb={} alt={} url={:?}", &self.img_id, &self.pair.src_full, &self.pair.src_thmb, &self.pair.alt, &self.pair.url)
     }
 }
 
