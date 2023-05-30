@@ -267,7 +267,7 @@ CREATE TABLE IF NOT EXISTS article_ref_article (
 	from_art INTEGER NOT NULL,						-- the article making the reference
 	from_para INTEGER,								-- (optional) paragraph within the article 
 	refs_art INTEGER NOT NULL,						-- the article being referenced
-	refs_para INTEGER NOT NULL,						-- (optional) paragraph within the article being referenced 
+	refs_para INTEGER,								-- (optional) paragraph within the article being referenced 
 	comment VARCHAR NOT NULL,						-- a brief explanation of why this is relevant or what it shows
 	prior_sha256 CHAR(64) NOT NULL, 				-- included for checking integrity
 	write_timestamp TIMESTAMPTZ NOT NULL,     

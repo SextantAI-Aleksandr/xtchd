@@ -281,7 +281,7 @@ impl FullText for Thumbnail {
 
 
 
-/// The RefFrom struct represents (1) the article a reference is made from, with optional paragraph identifier,
+/// The RefFrom struct represents (1) the article from which a reference is made, with optional paragraph identifier,
 /// and (2) a brief comment on why this reference is relevant or what it shows 
 #[derive(Serialize, Deserialize)]
 pub struct RefFrom {

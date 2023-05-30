@@ -258,7 +258,7 @@ impl Xtchr {
 
     /// add a reference from an article to a video, returning the vref_id
     pub async fn add_ref_video(&self, req: xrows::ArticleRefVideoReq) -> Result<i32, DiskError> {
-        let last_ref = get_last_row(&self.c, "SELECT vref_id, new_sha256 FROM article_ref_article ORDER BY vref_id DESC LIMIT 1").await.unwrap();
+        let last_ref = get_last_row(&self.c, "SELECT vref_id, new_sha256 FROM article_ref_video ORDER BY vref_id DESC LIMIT 1").await.unwrap();
         let vref_id = last_ref.next_id();
         let vref = xrows::ArticleRefVideo::from_req(req, vref_id);
         let hclink = HashChainLink::new(&last_ref.prior_sha256, &vref);
@@ -271,7 +271,7 @@ impl Xtchr {
 
     /// add a reference from an article to an image, returning the iref_id
     pub async fn add_ref_image(&self, req: xrows::ArticleRefImageReq) -> Result<i32, DiskError> {
-        let last_ref = get_last_row(&self.c, "SELECT iref_id, new_sha256 FROM article_ref_article ORDER BY iref_id DESC LIMIT 1").await.unwrap();
+        let last_ref = get_last_row(&self.c, "SELECT iref_id, new_sha256 FROM article_ref_image ORDER BY iref_id DESC LIMIT 1").await.unwrap();
         let iref_id = last_ref.next_id();
         let iref = xrows::ArticleRefImage::from_req(req, iref_id);
         let hclink = HashChainLink::new(&last_ref.prior_sha256, &iref);
