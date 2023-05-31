@@ -1,6 +1,7 @@
 
 
 CREATE VIEW author_detail AS (
+    -- this view yields the view.rs::AuthorDetail struct
     WITH authorship AS (
         SELECT auth_id, ARRAY_AGG(JSON_BUILD_OBJECT('id', art_id, 'name', title)) AS authored
         FROM articles GROUP BY auth_id
@@ -33,4 +34,85 @@ CREATE VIEW article_text AS (
     FROM articles ar
     LEFT JOIN authors au ON ar.auth_id = au.auth_id
     LEFT JOIN paragraphs p ON ar.art_id = p.art_id
+);
+
+
+CREATE VIEW article_refs AS (
+    /* this view yields Vec<views::ArticleRef>, keyed by (art_id, apara_id)
+    for the article from which the refence is being made. 
+    NOTE: because apara_id can be NULL, NULL is replaced with -1 in this view */
+    SELECT from_art AS art_id, COALESCE(from_para, -1) AS apara_id,
+        ARRAY_AGG(JSON_BUILD_OBJECT(
+            'aref_id', aref_id, 'art_id', refs_art, 'apara_id', refs_para,
+            'title', title, 'comment',comment )) AS art_refs
+    FROM article_ref_article ara
+    INNER JOIN articles  
+        ON ara.refs_art = articles.art_id
+    GROUP BY (from_art, apara_id)
+);
+
+
+CREATE VIEW video_refs AS (
+    /* this view yields Vec<views::VideoRef>, keyed by (art_id, apara_id)
+    for the article from which the refence is being made. 
+    NOTE: because apara_id can be NULL, NULL is replaced with -1 in this view */
+    SELECT art_id, COALESCE(apara_id, -1) AS apara_id,
+        ARRAY_AGG(JSON_BUILD_OBJECT(
+            'vref_id', vref_id, 'vid_pk', arv.vid_pk, 'sec_req', sec_req,
+            'title', title, 'comment',comment )) AS vid_refs
+    FROM article_ref_video arv
+    INNER JOIN youtube_videos yv
+        ON arv.vid_pk = yv.vid_pk
+    GROUP BY (art_id, apara_id)
+);
+
+
+
+CREATE VIEW image_refs AS (
+    /* this view yields Vec<views::ImageRef> , keyed by (art_id, apara_id)
+    for the article from which the refence is being made. 
+    NOTE: because apara_id can be NULL, NULL is replaced with -1 in this view */
+    SELECT art_id, COALESCE(apara_id, -1) AS apara_id,
+        ARRAY_AGG(JSON_BUILD_OBJECT(
+            'iref_id', iref_id, 'img_id', ari.img_id, 'src_thmb', src_thmb,
+            'alt', alt, 'url', url, 'comment', comment )) AS img_refs
+    FROM article_ref_image ari
+    INNER JOIN images
+        ON ari.img_id = images.img_id
+    GROUP BY (art_id, apara_id)
+);
+
+
+
+CREATE VIEW topic_refs AS (
+    /* this view yields Vec<views::Topic> , keyed by (art_id, apara_id)
+    for the paragraph where a topic is mentioned. */
+    SELECT art_id, apara_id,
+        ARRAY_AGG(JSON_BUILD_OBJECT(
+            'tkey', amt.tkey, 'pos', pos,
+            'name', name, 'count', count )) AS topics
+    FROM apara_ment_topic amt
+    INNER JOIN nlp_topics t
+        ON amt.tkey = t.tkey
+    GROUP BY (art_id, apara_id)
+);
+
+
+
+CREATE VIEW enriched_articles AS (
+    -- this view yields the views.rs::EnrichedArticle struct
+
+    -- This JSON is for XtchdSQL<Author> which is converted to XtchdContent<Author> by the impl tokio_postgres::types::FromSql 
+    SELECT
+    JSON_BUILD_OBJECT('prior_id', au.prior_id,
+        'content', JSON_BUILD_OBJECT('auth_id', au.auth_id, 'name', au.name),
+        'prior_sha256', au.prior_sha256, 'write_timestamp', au.write_timestamp, 'new_sha256', au.new_sha256
+    ) AS author, 
+    -- This JSON is for XtchdSQL<Article> which is converted to XtchdContent<Article> by the impl tokio_postgres::types::FromSql 
+    JSON_BUILD_OBJECT('prior_id', ar.prior_id,
+        'content', JSON_BUILD_OBJECT('art_id', ar.art_id, 'auth_id', ar.auth_id, 'title', ar.title),
+        'prior_sha256', ar.prior_sha256, 'write_timestamp', ar.write_timestamp, 'new_sha256', ar.new_sha256
+    ) AS article
+    FROM articles ar
+    LEFT JOIN authors au ON ar.auth_id = au.auth_id
 );

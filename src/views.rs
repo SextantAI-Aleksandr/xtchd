@@ -96,7 +96,7 @@ pub struct ImageRef {
     /// the image being referenced
     pub img_id: i32,
     /// A thumbnail with the image, encoded as base64
-    pub thumb_src: String,
+    pub src_thmb: String,
     /// alternate text / caption
     pub alt: String,
     /// optional url the image was captured / downloaded from
