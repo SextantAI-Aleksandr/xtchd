@@ -10,11 +10,28 @@ pub fn add(left: usize, right: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
+    use std::vec::Vec;
     use super::*;
+    use tokio::runtime::Runtime;
 
     #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+    fn test_enriched_article_fields() {
+        // Ensure you can deserialize the fields needed to return an EnrichedArticle
+        // See the implementations of tokio_postgres::types::FromSql in view.rs 
+        let rt = Runtime::new().unwrap();
+        rt.block_on(async {
+            let pool = xtchr::Pool::new_from_env().await;
+            let x = pool.get().await.unwrap();
+            let rows = x.c.query("SELECT author, article, refs, paragraphs
+                FROM enriched_article_fields
+                ORDER BY art_id DESC LIMIT 3", &[]).await.unwrap();
+            for row in rows {
+                let _author: integrity::XtchdContent<xrows::Author> = row.get(0);
+                let _article: integrity::XtchdContent<xrows::Article> = row.get(1);
+                let _opt_refs: Option<views::References> = row.get(2); // will be None for no references
+                let _paragraphs: Vec<views::EnrichedPara> = row.get(3);
+                
+            }
+        });
     }
 }

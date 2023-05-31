@@ -3,7 +3,7 @@ use serde::{Serialize, Deserialize};
 use serde_json;
 use tokio_postgres;
 use pachydurable::{autocomplete::{AutoComp, WhoWhatWhere}, fulltext::FullText};
-use crate::{integrity::XtchdContent, xrows};
+use crate::{integrity::{XtchdContent, XtchdSQL}, xrows};
 
 
 /// The ArticleText struct contains the auth, title, and paragraph texts for an article.
@@ -135,10 +135,21 @@ pub struct EnrichedPara {
     pub topics: Vec<Topic>,
 }
 
+
+/// This struct is needed because you can't deserialize the XtchdContent directly
+/// bec.ause the hcl.string_to_hash is never stored
+#[derive(Deserialize)]
+struct EnrichedParaSQL {
+    para: XtchdSQL<xrows::ArticlePara>,
+    refs: References, 
+    topics: Vec<Topic>
+}
+
 impl<'a> tokio_postgres::types::FromSql<'a> for EnrichedPara {
     fn from_sql(_ty: &tokio_postgres::types::Type, raw: &'a [u8]) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
-        let epara: EnrichedPara = serde_json::from_slice(raw)?;
-        Ok(epara)
+        let epsql: EnrichedParaSQL = serde_json::from_slice(raw)?;
+        let ep = EnrichedPara{para: XtchdContent::from_sql(epsql.para), refs: epsql.refs, topics: epsql.topics};
+        Ok(ep)
     }
     fn accepts(_ty: &tokio_postgres::types::Type) -> bool {
         true
@@ -156,7 +167,7 @@ pub struct EnrichedArticle {
     /// The title and identification of the article
     pub article: XtchdContent<xrows::Article>,
     /// References made by the article as a whole, not from any one specific paragraph
-    pub references: References,
+    pub refs: References,
     /// Each of the paragraphs from the article, enriched with references and with topics extracted using NLP
     pub paragraphs: Vec<EnrichedPara>,
 }

@@ -124,14 +124,15 @@ impl Xtchr {
 
     /// Get an enriched article struct given the article id 
     pub async fn enriched_article(&self, art_id: i32) -> Result<views::EnrichedArticle, DiskError> {
-        let query = "QUERY TBD where art_id = $1";
+        return Err(DiskError::missing_row())
+        /*let query = "QUERY TBD where art_id = $1";
         let rows = self.c.query(query, &[&art_id]).await?;
         let row = match rows.get(0) {
             Some(val) => val,
             None => return Err(DiskError::missing_row())
         };
         let ea: views::EnrichedArticle = row.get(0);
-        Ok(ea)
+        Ok(ea)*/
 
     }
 
@@ -314,4 +315,5 @@ mod tests {
             assert_eq!(&atxt.paragraphs.len(), &1);
         });
     }
+
 }
