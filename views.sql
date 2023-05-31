@@ -99,8 +99,53 @@ CREATE VIEW topic_refs AS (
 
 
 
+CREATE VIEW combined_refs AS (
+    /* this view yields Vec<views::References> keyed by (art_id, apara_id)*/
+    SELECT COALESCE(ap.art_id, COALESCE(a.art_id, COALESCE(v.art_id, i.art_id))) AS art_id,
+        COALESCE(ap.apara_id, COALESCE(a.apara_id, COALESCE(v.apara_id, i.apara_id))) AS apara_id,
+        JSON_BUILD_OBJECT(
+            'articles', CASE WHEN art_refs IS NULL THEN ARRAY[]::JSON[] else art_refs END,
+            'videos',   CASE WHEN vid_refs IS NULL THEN ARRAY[]::JSON[] else vid_refs END,
+            'images',   CASE WHEN img_refs IS NULL THEN ARRAY[]::JSON[] else img_refs END
+        ) AS refs 
+    FROM article_para ap 
+    FULL OUTER JOIN  article_refs a 
+        ON ap.art_id = a.art_id AND COALESCE(ap.apara_id, -1) = a.apara_id
+    FULL OUTER JOIN video_refs v
+        ON ap.art_id = v.art_id AND COALESCE(ap.apara_id, -1) = v.apara_id 
+    FULL OUTER JOIN image_refs i 
+        ON ap.art_id = i.art_id AND COALESCE(ap.apara_id, -1) = i.apara_id 
+);
+
+
+CREATE VIEW enriched_paragraphs AS (
+    /*This view yields the views::EnrichedPara struct, keyed by (art_id, apara_id)*/
+    SELECT ap.art_id, ap.apara_id, 
+        JSON_BUILD_OBJECT(
+            'para', JSON_BUILD_OBJECT('prior_id', ap.prior_id,
+                'content', JSON_BUILD_OBJECT('art_id', ap.art_id, 'apara_id', ap.apara_id, 'md', md),
+                    'prior_sha256', ap.prior_sha256, 'write_timestamp', ap.write_timestamp, 'new_sha256', ap.new_sha256
+                ),
+            'refs', cr.refs,
+            'topics', CASE WHEN topics IS NULL THEN ARRAY[]::JSON[] else topics END
+        ) as epara
+    FROM article_para ap 
+    LEFT JOIN combined_refs cr 
+        ON ap.art_id = cr.art_id AND ap.apara_id = cr.apara_id 
+    LEFT JOIN topic_refs tr 
+        ON ap.art_id = tr.art_id AND ap.apara_id = tr.apara_id 
+);
+
+
 CREATE VIEW enriched_articles AS (
     -- this view yields the views.rs::EnrichedArticle struct
+    WITH paragraphs AS (
+        SELECT art_id, ARRAY_AGG(JSON_BUILD_OBJECT('prior_id', prior_id,
+            'content', JSON_BUILD_OBJECT('art_id', art_id, 'apara_id', apara_id, 'md', md),
+            'prior_sha256', prior_sha256, 'write_timestamp', write_timestamp, 'new_sha256', new_sha256
+        )) AS art_paras
+        FROM article_para GROUP BY art_id
+    ) 
 
     -- This JSON is for XtchdSQL<Author> which is converted to XtchdContent<Author> by the impl tokio_postgres::types::FromSql 
     SELECT

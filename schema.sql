@@ -405,3 +405,16 @@ CREATE TABLE IF NOT EXISTS nlp_topics (
 	ac tsvector GENERATED ALWAYS AS ( to_tsvector('simple', name )) STORED,
 CONSTRAINT nlpentpos FOREIGN KEY (pos) REFERENCES nlp_topic_pos(pos)
 );
+
+CREATE TABLE IF NOT EXISTS apara_ment_topic (
+	/*Each time an article paragraph mentions a topic, 
+	add or increment a row in this table*/
+	tkey VARCHAR NOT NULL,
+	art_id INTEGER NOT NULL,
+	apara_id INTEGER NOT NULL,
+	PRIMARY KEY (tkey, art_id, apara_id),
+CONSTRAINT aparatop FOREIGN KEY (tkey) REFERENCES nlp_topics(tkey),
+CONSTRAINT aparavid FOREIGN KEY (art_id, apara_id) REFERENCES article_para (art_id, apara_id) 
+);
+CREATE INDEX byart ON apara_ment_topic(art_id, apara_id);
+
