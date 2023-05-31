@@ -131,7 +131,7 @@ impl<'a> tokio_postgres::types::FromSql<'a> for References {
 #[derive(Serialize, Deserialize)]
 pub struct EnrichedPara {
     pub para: XtchdContent<xrows::ArticlePara>,
-    pub references: References,
+    pub refs: References,
     pub topics: Vec<Topic>,
 }
 
