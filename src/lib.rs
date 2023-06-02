@@ -28,9 +28,9 @@ mod tests {
             for row in rows {
                 let _author: integrity::XtchdContent<xrows::Author> = row.get(0);
                 let _article: integrity::XtchdContent<xrows::Article> = row.get(1);
-                let _opt_refs: Option<views::References> = row.get(2); // will be None for no references
+                // Postgres: combined_refs.refs can be null due to LEFT JOIN if there are no -1 rows for that article
+                let _opt_refs: Option<views::References> = row.get(2); 
                 let _paragraphs: Vec<views::EnrichedPara> = row.get(3);
-                
             }
         });
     }

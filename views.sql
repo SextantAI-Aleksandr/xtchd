@@ -145,7 +145,7 @@ CREATE VIEW enriched_article_fields AS (
         FROM enriched_paragraphs 
         GROUP BY art_id
     )
-    SELECT art.art_id, epara_agg.paragraphs, cr.refs, -- cr.refs can be null due to LEFT JOIN if there are not -1 rows for that article
+    SELECT art.art_id, epara_agg.paragraphs, cr.refs, -- cr.refs can be null due to LEFT JOIN if there are no -1 rows for that article
         JSON_BUILD_OBJECT('prior_id', au.prior_id,
             'content', JSON_BUILD_OBJECT('auth_id', au.auth_id, 'name', au.name),
             'prior_sha256', au.prior_sha256, 'write_timestamp', au.write_timestamp, 'new_sha256', au.new_sha256
