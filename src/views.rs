@@ -2,7 +2,7 @@ use std::vec::Vec;
 use serde::{Serialize, Deserialize};
 use serde_json;
 use tokio_postgres;
-use pachydurable::{autocomplete::{AutoComp, WhoWhatWhere}, fulltext::FullText};
+use pachydurable::{autocomplete::{AutoComp, WhoWhatWhere}, fulltext::FullText, redis::Cacheable};
 use crate::{integrity::{XtchdContent, XtchdSQL}, xrows};
 
 
@@ -173,7 +173,32 @@ pub struct EnrichedArticle {
 }
 
 
-impl<'a> tokio_postgres::types::FromSql<'a> for EnrichedArticle {
+impl Cacheable for EnrichedArticle {
+
+    fn key_prefix() ->  &'static str {
+        "enr_art"
+    }
+
+    fn seconds_expiry() -> usize {
+        (60*60*24) as usize
+    }
+
+    fn query() ->  &'static str {
+        "SELECT author, article, refs, paragraphs FROM enriched_article_fields WHERE art_id = $1"
+    }
+
+
+    fn from_row(row: &tokio_postgres::Row) -> Self {
+        let author: XtchdContent<xrows::Author> = row.get(0);
+        let article: XtchdContent<xrows::Article> = row.get(1);
+        let refs: References = row.get(2);
+        let paragraphs: Vec<EnrichedPara> = row.get(3);
+        EnrichedArticle{author, article, refs, paragraphs}
+        
+    }
+}
+
+/*impl<'a> tokio_postgres::types::FromSql<'a> for EnrichedArticle {
     fn from_sql(_ty: &tokio_postgres::types::Type, raw: &'a [u8]) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
         let ea: EnrichedArticle = serde_json::from_slice(raw)?;
         Ok(ea)
@@ -181,7 +206,7 @@ impl<'a> tokio_postgres::types::FromSql<'a> for EnrichedArticle {
     fn accepts(_ty: &tokio_postgres::types::Type) -> bool {
         true
     }
-}
+}*/
 
 
 

@@ -4,6 +4,7 @@
 
 use chrono::{NaiveDate, DateTime, offset::Utc};
 use pachydurable::{connect::{ConnPoolNoTLS, ClientNoTLS, pool_no_tls_from_env}, err::DiskError};
+use pachydurable::redis as predis;
 use crate::{xrows, views, integrity::{XtchdContent, HashChainLink}};
 
 
@@ -123,17 +124,12 @@ impl Xtchr {
 
 
     /// Get an enriched article struct given the article id 
-    pub async fn enriched_article(&self, art_id: i32) -> Result<views::EnrichedArticle, DiskError> {
-        return Err(DiskError::missing_row())
-        /*let query = "QUERY TBD where art_id = $1";
-        let rows = self.c.query(query, &[&art_id]).await?;
-        let row = match rows.get(0) {
-            Some(val) => val,
-            None => return Err(DiskError::missing_row())
-        };
-        let ea: views::EnrichedArticle = row.get(0);
-        Ok(ea)*/
-
+    pub async fn enriched_article(&self, rpool: &predis::RedisPool, art_id: i32) -> Result<views::EnrichedArticle, DiskError> {
+        let oea: Option<views::EnrichedArticle> = predis::cached_or_cache(&self.c, rpool, &[&art_id]).await.unwrap();
+        match oea {
+            Some(ea) => Ok(ea),
+            None => Err(DiskError::missing_row()),
+        }
     }
 
 

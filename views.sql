@@ -101,14 +101,18 @@ CREATE VIEW topic_refs AS (
 
 CREATE VIEW combined_refs AS (
     /* this view yields Vec<views::References> keyed by (art_id, apara_id)*/
-    SELECT COALESCE(ap.art_id, COALESCE(a.art_id, COALESCE(v.art_id, i.art_id))) AS art_id,
-        COALESCE(ap.apara_id, COALESCE(a.apara_id, COALESCE(v.apara_id, i.apara_id))) AS apara_id,
+    WITH all_article_paragraphs AS (
+        SELECT art_id, -1 AS apara_id FROM article_para -- for the article as a whole
+        UNION
+        SELECT art_id, apara_id FROM article_para
+    )
+    SELECT ap.art_id, ap.apara_id, 
         JSON_BUILD_OBJECT(
             'articles', CASE WHEN art_refs IS NULL THEN ARRAY[]::JSON[] else art_refs END,
             'videos',   CASE WHEN vid_refs IS NULL THEN ARRAY[]::JSON[] else vid_refs END,
             'images',   CASE WHEN img_refs IS NULL THEN ARRAY[]::JSON[] else img_refs END
         ) AS refs 
-    FROM article_para ap 
+    FROM all_article_paragraphs ap 
     FULL OUTER JOIN  article_refs a 
         ON ap.art_id = a.art_id AND COALESCE(ap.apara_id, -1) = a.apara_id
     FULL OUTER JOIN video_refs v

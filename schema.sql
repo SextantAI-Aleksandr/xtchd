@@ -67,7 +67,7 @@ CONSTRAINT art_verify_sha256 CHECK (
 		),
 	'hex') = new_sha256)
 );
-INSERT INTO articles (art_id, auth_id, title, prior_sha256, write_timestamp, new_sha256) 
+/*INSERT INTO articles (art_id, auth_id, title, prior_sha256, write_timestamp, new_sha256) 
 VALUES (0, 0, 'Initial Article', '0000000000000000000000000000000000000000000000000000000000000000',
 	CURRENT_TIMESTAMP, 
 	ENCODE(
@@ -81,7 +81,7 @@ VALUES (0, 0, 'Initial Article', '0000000000000000000000000000000000000000000000
 			)::BYTEA
 		),
 	'hex')
-);
+);*/
 
 CREATE TABLE IF NOT EXISTS article_para (
 	prior_id INTEGER UNIQUE,
