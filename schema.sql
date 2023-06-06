@@ -154,6 +154,7 @@ CREATE TABLE IF NOT EXISTS images (
 	src_thmb TEXT NOT NULL,						-- thumbnail source encoded as base64: "<img src="data:image/png;base64, iVBORw0KGgoA..." etc
 	alt VARCHAR NOT NULL,						-- caption / alt text for accessability
 	url VARCHAR,								-- url for a screenshot or image download 
+	archive CHAR(5),							-- 5-character key for https://archive.is/83cXk and https://archive.is/83cXk/image etc.
 	prior_sha256 CHAR(64) NOT NULL, 			-- included for checking integrity
 	write_timestamp TIMESTAMPTZ NOT NULL,     	-- timestamp when this row was written 
 	new_sha256 CHAR(64) NOT NULL,				-- new sha256 based on the below constraint
@@ -171,6 +172,7 @@ CREATE TABLE IF NOT EXISTS images (
 					' src_thmb=', src_thmb,
 					' alt=', alt,
 					' url=', url,
+					' archive=', archive,
 					' write_timestamp=', TO_CHAR(write_timestamp, 'YYYY.MM.DD HH24:MI:SS'),
 					' prior_sha256=', prior_sha256
 				)::BYTEA
