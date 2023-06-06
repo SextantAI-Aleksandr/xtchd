@@ -224,8 +224,8 @@ impl Xtchr {
         let ii = xrows::ImmutableImage{img_id, pair};
         let hclink = HashChainLink::new(&last_ref.prior_sha256, &ii);
         let _x = self.c.execute("INSERT INTO images 
-            (                  prior_id,  img_id,          src_full,          src_thmb,          alt,          url,           prior_sha256,         write_timestamp,          new_sha256) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
-            &[&last_ref.prior_id, &img_id, &ii.pair.src_full, &ii.pair.src_thmb, &ii.pair.alt, &ii.pair.url, &last_ref.prior_sha256, &hclink.write_timestamp, &hclink.new_sha256()]).await?;
+            (                  prior_id,  img_id,          src_full,          src_thmb,          alt,          url,          archive,           prior_sha256,         write_timestamp,          new_sha256) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+            &[&last_ref.prior_id, &img_id, &ii.pair.src_full, &ii.pair.src_thmb, &ii.pair.alt, &ii.pair.url, &ii.pair.archive, &last_ref.prior_sha256, &hclink.write_timestamp, &hclink.new_sha256()]).await?;
         Ok(img_id)
     }
 

@@ -21,6 +21,9 @@ impl Xtchable for Author {
     fn state_string(&self) -> String {
         format!("auth_id={} name={}", &self.auth_id, &self.name)
     }
+    fn dtype() -> &'static str {
+        "Author"
+    }
 }
 
 impl AutoComp<i32> for Author {
@@ -51,6 +54,9 @@ impl Xtchable for Article {
     fn state_string(&self) -> String {
         format!("art_id={} auth_id={} title={}", &self.art_id, &self.auth_id, &self.title)
     }
+    fn dtype() -> &'static str {
+        "Article"
+    }
 }
 
 impl AutoComp<i32> for Article {
@@ -80,6 +86,9 @@ pub struct ArticlePara {
 impl Xtchable for ArticlePara {
     fn state_string(&self) -> String {
         format!("apara_id={} art_id={} md={}", &self.apara_id, &self.art_id, &self.md)
+    }
+    fn dtype() -> &'static str {
+        "ArticlePara"
     }
 }
 
@@ -112,6 +121,9 @@ impl Xtchable for YoutubeChannel {
     fn state_string(&self) -> String {
         format!("chan_id={} name={} url={}", &self.chan_id, &self.name, &self.url)
     }
+    fn dtype() -> &'static str {
+        "YoutubeChannel"
+    }
 }
 
 impl AutoComp<i32> for YoutubeChannel {
@@ -142,6 +154,9 @@ pub struct YoutubeVideo {
 impl Xtchable for YoutubeVideo {
     fn state_string(&self) -> String {
         format!("vid_id={} vid_pk={} chan_id={} title={}", &self.vid_id, &self.vid_pk, &self.chan_id, &self.title)
+    }
+    fn dtype() -> &'static str {
+        "YoutubeVideo"
     }
 }
 
@@ -179,6 +194,8 @@ pub struct ImagePair {
     pub alt: String,
     /// optional URL for screenshots and downloads
     pub url: Option<String>,
+    /// optional 5-character primary key for an archive made with archive.is
+    pub archive: Option<String>,
 }
 
 
@@ -206,9 +223,13 @@ pub struct ImmutableImage {
 
 impl Xtchable for ImmutableImage {
     fn state_string(&self) -> String {
-        format!("img_id={} src_full={} src_thmb={} alt={} url={}",
-            &self.img_id, &self.pair.src_full, &self.pair.src_thmb, &self.pair.alt, nonefmt(&self.pair.url))
+        format!("img_id={} src_full={} src_thmb={} alt={} url={} archive={}",
+            &self.img_id, &self.pair.src_full, &self.pair.src_thmb, &self.pair.alt, nonefmt(&self.pair.url), nonefmt(&self.pair.archive))
     }
+    fn dtype() -> &'static str {
+        "Image"
+    }
+
 }
 
 
@@ -313,6 +334,9 @@ impl Xtchable for ArticleRefArticle {
         format!("aref_id={} from_art={} from_para={} refs_art={} refs_para={} comment={}",
             &self.aref_id, &self.rf.art_id, nonefmt(&self.rf.apara_id), &self.refs_art, nonefmt(&self.refs_para), &self.rf.comment)
     }
+    fn dtype() -> &'static str {
+        "ArticleRefArticle"
+    }
 }
 
 
@@ -360,6 +384,9 @@ impl Xtchable for ArticleRefVideo {
         format!("vref_id={} art_id={} apara_id={} vid_pk={} sec_req={} comment={}",
             &self.vref_id, &self.rf.art_id, nonefmt(&self.rf.apara_id), &self.vid_pk, nonefmt(&self.sec_req), &self.rf.comment)
     }
+    fn dtype() -> &'static str {
+        "ArticleRefVideo"
+    }
 }
 
 /// This struct is the same as ArticleRefVideo but without the vref_id
@@ -404,6 +431,9 @@ impl Xtchable for ArticleRefImage {
     fn state_string(&self) -> String {
         format!("iref_id={} art_id={} apara_id={} img_id={} comment={}",
             &self.iref_id, &self.rf.art_id, nonefmt(&self.rf.apara_id), &self.img_id, &self.rf.comment)
+    }
+    fn dtype() -> &'static str {
+        "ArticleRefImage"
     }
 }
 

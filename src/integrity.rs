@@ -41,10 +41,22 @@ pub fn sha256(input: &str) -> String {
 
 
 
+/// The Xtchable trait is the key trait that should be implemented on a struct to allow hash chain integrity.
+/// Simply put, a struct implementing Xtchable will have a .state_string() method which returns a string describing
+/// the state of the struct. This is implemented in a manner which matches a corresponding CHECK CONSTRAINT in Postgres
+/// which checks the hash integrity of each entry prior to a row being written.
 pub trait Xtchable {
-    // This should define the "state" of an object, apart from the prior_sha256 and the write_timestamp
-    // It will be used in generating a hash to verify row integrity
+    
+    /// The state_string() method describes the state of the object, similar to serialization.
+    /// The exact implementation is a bit arbitrary, but whatever implementation is chosen, it must
+    /// match a corresponding CHECK CONSTRAINT in Postgres.
     fn state_string(&self) -> String;
+
+    /// The dtype indicates the "data type" for a struct, simply just the name of the struct itself 
+    /// (this cannot be easily implemented otherwise as Rust does not have reflection).  
+    /// A dtype is useful so the XtchedContent struct can include a .dtype field which indicates which
+    /// type of Xtched content is included in non-strictly typed languages, namely Javascript. s
+    fn dtype() -> &'static str;
 }
 
 
@@ -55,10 +67,13 @@ pub trait Xtchable {
 /// to allow demonstration of the new_sha256 matching the calculated sha256 (typically in JavaScript in the user's browser.)
 #[derive(Serialize, Deserialize)]
 pub struct XtchdContent<T: Xtchable> {
+    pub dtype: String,
     pub prior_id: Option<i32>, // must only be None for the very first entry 
     pub prior_sha256: String,
     pub content: T,
     pub hcl: HashChainLink,
+    /// the write_timestamp but formatted with time_fmt
+    pub write_timestamp_str: String,    
     pub new_sha256: String,
 }
 
@@ -83,7 +98,9 @@ impl<T: Xtchable + Serialize + DeserializeOwned> XtchdContent<T> {
 
     pub fn new(prior_id: Option<i32>, prior_sha256: String, write_timestamp: DateTime<Utc>, content: T, new_sha256: String) -> Self {
         let hcl = HashChainLink::from_timestamp(&prior_sha256, write_timestamp.clone(), &content);
-        XtchdContent{prior_id, prior_sha256, content, hcl, new_sha256}
+        let dtype = T::dtype().to_string();
+        let write_timestamp_str = time_fmt(&write_timestamp);
+        XtchdContent{dtype, prior_id, prior_sha256, content, hcl, new_sha256, write_timestamp_str}
     }
 
     pub fn from_sql(xsql: XtchdSQL<T>) -> Self {
