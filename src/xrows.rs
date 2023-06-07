@@ -48,6 +48,7 @@ pub struct Article {
     pub art_id: i32,    // the primary key for this article
     pub auth_id: i32,   // the primary key fo r the author
     pub title: String,
+    pub image_file: Option<String>,
 }
 
 impl Xtchable for Article {

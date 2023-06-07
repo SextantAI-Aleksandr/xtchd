@@ -40,17 +40,26 @@ INSERT INTO authors (auth_id, name, prior_sha256, write_timestamp, new_sha256) V
 );
 
 
+CREATE TABLE IF NOT EXISTS image_files (
+	-- filenames for non-hashed images (typically stock photos) stored at the /images/ path in 
+	image_file VARCHAR NOT NULL PRIMARY KEY, 	-- the filename for the image 
+	license_info VARCHAR NOT NULL,				-- the text to display next to the image
+	alt VARCHAR									-- alternate text for accessability 
+);
+
 CREATE TABLE IF NOT EXISTS articles (
 	prior_id INTEGER UNIQUE,
 	art_id INTEGER NOT NULL PRIMARY KEY,
 	auth_id INTEGER NOT NULL,
 	title VARCHAR NOT NULL UNIQUE,
+	image_file VARCHAR, 			-- an image to use as the 'cover' for an article
 	prior_sha256 CHAR(64) NOT NULL, -- included for checking integrity
 	write_timestamp TIMESTAMPTZ NOT NULL,     
 	new_sha256 CHAR(64) NOT NULL,
 	UNIQUE(art_id, new_sha256), -- this allows the no_delete constraint below 
 	ac tsvector GENERATED ALWAYS AS ( to_tsvector('simple', title )) STORED,
 CONSTRAINT art_auth FOREIGN KEY (auth_id) REFERENCES authors(auth_id),
+CONSTRAINT art_image FOREIGN KEY (image_file) REFERENCES image_files(image_file) ON UPDATE CASCADE,
 CONSTRAINT art_prior CHECK ( (art_id = 0) OR ((prior_id IS NOT NULL) AND (prior_id = art_id - 1)) ),
 CONSTRAINT art_no_delete FOREIGN KEY (prior_id, prior_sha256) REFERENCES articles (art_id, new_sha256),
 CONSTRAINT art_no_rewrite_later CHECK (EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - write_timestamp)) <= 1),
@@ -113,7 +122,7 @@ CONSTRAINT apara_verify_sha256 CHECK (
 );
 CREATE INDEX article_fulltext ON article_para USING GIN(ts);
 INSERT INTO article_para (apara_id, art_id, md, prior_sha256, write_timestamp, new_sha256) 
-VALUES (0, 0, '*First Paragraph* of [Initial Article](www.xtchd.com) markdown!',
+/*VALUES (0, 0, '*First Paragraph* of [Initial Article](www.xtchd.com) markdown!',
 	'0000000000000000000000000000000000000000000000000000000000000000',
 	CURRENT_TIMESTAMP, 
 	ENCODE(
@@ -127,7 +136,7 @@ VALUES (0, 0, '*First Paragraph* of [Initial Article](www.xtchd.com) markdown!',
 			)::BYTEA
 		),
 	'hex')
-);
+);*/
 
 
 

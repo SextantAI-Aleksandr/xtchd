@@ -73,7 +73,7 @@ impl Xtchr {
     /// This method is called to get the most recent articles (but not the associated text)
     /// Think of it as giving the headline for the most recent articles
     pub async fn latest_headlines(&self) -> Result<Vec<xrows::Article>, DiskError> {
-        let query = "SELECT art_id, auth_id, title FROM articles 
+        let query = "SELECT art_id, auth_id, title, image_file FROM articles 
             ORDER BY art_id DESC LIMIT 12";
         let rows = self.c.query(query, &[]).await?;
         let mut articles = Vec::new();
@@ -81,7 +81,8 @@ impl Xtchr {
             let art_id: i32 = row.get(0);
             let auth_id: i32 = row.get(1);
             let title: String = row.get(2);
-            articles.push(xrows::Article{art_id, auth_id, title});
+            let image_file: Option<String> = row.get(3);
+            articles.push(xrows::Article{art_id, auth_id, title, image_file});
         }
         Ok(articles)
     }
@@ -150,16 +151,24 @@ impl Xtchr {
 
 
     // add an article (but not the text thereof)
-    pub async fn add_article(&self, auth_id: i32, title: &str) -> Result<(xrows::Article, HashChainLink), DiskError> {
+    pub async fn add_article(&self, auth_id: i32, title: &str, image_file: &Option<String>) -> Result<(xrows::Article, HashChainLink), DiskError> {
         let last_article = get_last_row(&self.c, "SELECT art_id, new_sha256 FROM articles ORDER BY art_id DESC LIMIT 1").await.unwrap();
         let art_id = last_article.next_id();
         let title = title.to_string();
-        let article = xrows::Article{art_id, auth_id, title};
+        let image_file = match image_file {
+            None => None,
+            Some(filename) => {
+                let _x = self.c.execute("INSERT INTO image_files (image_file) VALUES ($1)
+                    ON CONFLICT (image_file) DO NOTHING", &[&filename]).await.unwrap();
+                Some(filename.to_owned())
+            }
+        };
+        let article = xrows::Article{art_id, auth_id, title, image_file};
         let hclink = HashChainLink::new(&last_article.prior_sha256, &article);
         let _x = self.c.execute("INSERT INTO articles
-            (                   prior_id,  art_id, auth_id,          title,               prior_sha256,         write_timestamp,          new_sha256)
-                VALUES ($1, $2, $3, $4, $5, $6, $7) ",
-        &[&last_article.prior_id, &art_id, &auth_id, &article.title, &last_article.prior_sha256, &hclink.write_timestamp, &hclink.new_sha256() ]
+            (                   prior_id,  art_id, auth_id,          title,               prior_sha256,         write_timestamp,          new_sha256,          image_file)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ",
+        &[&last_article.prior_id, &art_id, &auth_id, &article.title, &last_article.prior_sha256, &hclink.write_timestamp, &hclink.new_sha256(), &article.image_file ]
         ).await.unwrap();
         Ok((article, hclink))
     }
