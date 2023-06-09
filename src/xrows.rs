@@ -7,7 +7,7 @@ use chrono::NaiveDate;
 use serde::{Serialize, Deserialize};
 use serde_json;
 use tokio_postgres;
-use pachydurable::{autocomplete::{AutoComp, WhoWhatWhere}, fulltext::FullText};
+use pachydurable::{autocomplete::{AutoComp, WhoWhatWhere}, fulltext::FullText, redis::{CachedAutoComp, PreWarmDepth}};
 use crate::integrity::{Xtchable, nonefmt};
 
 
@@ -39,6 +39,19 @@ impl AutoComp<i32> for Author {
         let auth_id: i32 = row.get(0);
         let name: String = row.get(1);
         WhoWhatWhere{data_type, pk: auth_id, name}
+    }
+}
+
+impl CachedAutoComp<i32> for Author {
+    fn dtype() -> &'static str {
+        <Author as Xtchable>::dtype()
+    }
+    fn seconds_expiry() -> usize {
+        // one month may seem like a long time, but authors change seldom, and you can always call pachydurable::redis::warm_the_cache()
+        (60*60*24*31) as usize
+    }
+    fn prewarm_depth() -> PreWarmDepth {
+        PreWarmDepth::Char2
     }
 }
 
@@ -75,6 +88,20 @@ impl AutoComp<i32> for Article {
         WhoWhatWhere{data_type, pk: art_id, name: title}
     }
 }
+
+impl CachedAutoComp<i32> for Article {
+    fn dtype() -> &'static str {
+        <Article as Xtchable>::dtype()
+    }
+    fn seconds_expiry() -> usize {
+        // a couple days may seem like a long time, but you can always call pachydurable::redis::warm_the_cache()
+        (60*60*24*2) as usize
+    }
+    fn prewarm_depth() -> PreWarmDepth {
+        PreWarmDepth::Char3
+    }
+}
+
 
 /// This struct corresponds to one article paragraph
 #[derive(Serialize, Deserialize)]
@@ -143,6 +170,19 @@ impl AutoComp<i32> for YoutubeChannel {
     }
 }
 
+impl CachedAutoComp<i32> for YoutubeChannel {
+    fn dtype() -> &'static str {
+        <YoutubeChannel as Xtchable>::dtype()
+    }
+    fn seconds_expiry() -> usize {
+        // one month may seem like a long time, but channels are not added very quickly, and you can always call pachydurable::redis::warm_the_cache()
+        (60*60*24*31) as usize
+    }
+    fn prewarm_depth() -> PreWarmDepth {
+        PreWarmDepth::Char2
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct YoutubeVideo {
     pub chan_id: i32,       // The id for the channel,
@@ -178,6 +218,19 @@ impl AutoComp<String> for YoutubeVideo {
         WhoWhatWhere{data_type, pk: vid_pk, name: title}
     }
 }
+
+impl CachedAutoComp<String> for YoutubeVideo {
+    fn dtype() -> &'static str {
+        <YoutubeVideo as Xtchable>::dtype()
+    }
+    fn seconds_expiry() -> usize {
+        (60*60*24) as usize
+    }
+    fn prewarm_depth() -> PreWarmDepth {
+        PreWarmDepth::Char3
+    }
+}
+
 
 
 
@@ -235,7 +288,7 @@ impl Xtchable for ImmutableImage {
 
 
 /// This struct is useful for autocompletion of results for immutable images 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct ImageThumbnail {
     pub img_id: i32,
     pub src_thmb: String,
@@ -260,6 +313,21 @@ impl AutoComp<ImageThumbnail> for ImmutableImage {
         WhoWhatWhere{data_type, pk, name}
     }
 }
+
+
+impl CachedAutoComp<ImageThumbnail> for ImmutableImage {
+    fn dtype() -> &'static str {
+        <ImmutableImage as Xtchable>::dtype()
+    }
+    fn seconds_expiry() -> usize {
+        (60*60*24*3) as usize
+    }
+    fn prewarm_depth() -> PreWarmDepth {
+        PreWarmDepth::Char2 // remember the image is large: don't copy it across too many keys 
+    }
+}
+
+
 
 
 /// For most rendering purposes, image thumbnails will be used (instead of the full image)

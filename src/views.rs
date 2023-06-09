@@ -2,7 +2,7 @@ use std::vec::Vec;
 use serde::{Serialize, Deserialize};
 use serde_json;
 use tokio_postgres;
-use pachydurable::{autocomplete::{AutoComp, WhoWhatWhere}, fulltext::FullText, redis::Cacheable};
+use pachydurable::{autocomplete::{AutoComp, WhoWhatWhere}, fulltext::FullText, redis::{Cacheable, CachedAutoComp, PreWarmDepth}};
 use crate::{integrity::{XtchdContent, XtchdSQL}, xrows};
 
 
@@ -49,6 +49,19 @@ impl AutoComp<String> for Topic {
         let tkey: String = row.get(0);
         let name: String = row.get(1);
         WhoWhatWhere { data_type, pk: tkey, name }
+    }
+}
+
+
+impl CachedAutoComp<String> for Topic {
+    fn dtype() -> &'static str {
+        "Topic"
+    }
+    fn seconds_expiry() -> usize {
+        (60*60*24) as usize
+    }
+    fn prewarm_depth() -> PreWarmDepth {
+        PreWarmDepth::Char3
     }
 }
 
