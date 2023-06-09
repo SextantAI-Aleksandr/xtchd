@@ -45,7 +45,7 @@ impl AutoComp<String> for Topic {
     }
 
     fn rowfunc_autocomp(row: &pachydurable::connect::Row) -> WhoWhatWhere<String> {
-        let data_type = "Topic";
+        let data_type = String::from("Topic");
         let tkey: String = row.get(0);
         let name: String = row.get(1);
         WhoWhatWhere { data_type, pk: tkey, name }
@@ -197,16 +197,6 @@ impl Cacheable for EnrichedArticle {
         
     }
 }
-
-/*impl<'a> tokio_postgres::types::FromSql<'a> for EnrichedArticle {
-    fn from_sql(_ty: &tokio_postgres::types::Type, raw: &'a [u8]) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
-        let ea: EnrichedArticle = serde_json::from_slice(raw)?;
-        Ok(ea)
-    }
-    fn accepts(_ty: &tokio_postgres::types::Type) -> bool {
-        true
-    }
-}*/
 
 
 

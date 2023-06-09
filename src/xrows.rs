@@ -35,7 +35,7 @@ impl AutoComp<i32> for Author {
         LIMIT 10;"
     }
     fn rowfunc_autocomp(row: &tokio_postgres::Row) -> WhoWhatWhere<i32> {
-        let data_type = "Author";
+        let data_type = <Author as Xtchable>::dtype().to_string();
         let auth_id: i32 = row.get(0);
         let name: String = row.get(1);
         WhoWhatWhere{data_type, pk: auth_id, name}
@@ -69,7 +69,7 @@ impl AutoComp<i32> for Article {
         LIMIT 10"
     }
     fn rowfunc_autocomp(row: &tokio_postgres::Row) -> WhoWhatWhere<i32>  {
-        let data_type = "Author";
+        let data_type = <Article as Xtchable>::dtype().to_string();
         let art_id: i32 = row.get(0);
         let title: String = row.get(1);
         WhoWhatWhere{data_type, pk: art_id, name: title}
@@ -136,7 +136,7 @@ impl AutoComp<i32> for YoutubeChannel {
         LIMIT 10"
     }
     fn rowfunc_autocomp(row: &tokio_postgres::Row) -> WhoWhatWhere<i32>  {
-        let data_type = "YoutubeChannel";
+        let data_type = <YoutubeChannel as Xtchable>::dtype().to_string();
         let chan_id: i32 = row.get(0);
         let name: String = row.get(1);
         WhoWhatWhere{data_type, pk: chan_id, name}
@@ -172,7 +172,7 @@ impl AutoComp<String> for YoutubeVideo {
     }
 
     fn rowfunc_autocomp(row: &postgres::Row) -> WhoWhatWhere<String> {
-        let data_type = "YoutubeVideo";
+        let data_type = <YoutubeVideo as Xtchable>::dtype().to_string();
         let vid_pk: String = row.get(0);
         let title: String = row.get(1);
         WhoWhatWhere{data_type, pk: vid_pk, name: title}
@@ -252,7 +252,7 @@ impl AutoComp<ImageThumbnail> for ImmutableImage {
     }
 
     fn rowfunc_autocomp(row: &tokio_postgres::Row) -> WhoWhatWhere<ImageThumbnail> {
-        let data_type = "image";
+        let data_type = <ImmutableImage as Xtchable>::dtype().to_string();
         let img_id: i32 = row.get(0);
         let name: String = row.get(1);
         let src_thmb: String = row.get(2);
