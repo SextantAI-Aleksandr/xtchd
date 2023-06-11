@@ -168,7 +168,7 @@ CREATE TABLE IF NOT EXISTS images (
 	write_timestamp TIMESTAMPTZ NOT NULL,     	-- timestamp when this row was written 
 	new_sha256 CHAR(64) NOT NULL,				-- new sha256 based on the below constraint
 	UNIQUE(img_id, new_sha256),				-- this allows the below constraint 
-	ts tsvector GENERATED ALWAYS AS ( to_tsvector('english', alt )) STORED,
+	ts tsvector GENERATED ALWAYS AS ( to_tsvector('english', alt || ' ' || archive )) STORED,
 	CONSTRAINT img_prior CHECK ( (img_id = 0) OR ((prior_id IS NOT NULL) AND (prior_id = img_id - 1)) ),
 	CONSTRAINT img_no_delete FOREIGN KEY (prior_id, prior_sha256) REFERENCES images (img_id, new_sha256),
 	CONSTRAINT img_no_rewrite_later CHECK (EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - write_timestamp)) <= 1),
@@ -246,7 +246,7 @@ CREATE TABLE IF NOT EXISTS youtube_videos (
 	write_timestamp TIMESTAMPTZ NOT NULL,
 	new_sha256 CHAR(64) NOT NULL,
 	UNIQUE(vid_id, new_sha256),
-	ac tsvector GENERATED ALWAYS AS ( to_tsvector('simple', title )) STORED,
+	ac tsvector GENERATED ALWAYS AS ( to_tsvector('simple', title || ' '|| vid_pk)) STORED,
 	CONSTRAINT ytvid_chan FOREIGN KEY (chan_id) REFERENCES youtube_channels (chan_id),
 	CONSTRAINT ytchan_prior CHECK ( (vid_id = 0) OR ((prior_id IS NOT NULL) AND (prior_id = vid_id - 1)) ),
 	CONSTRAINT ytvid_no_delete FOREIGN KEY (prior_id, prior_sha256) REFERENCES youtube_videos (vid_id, new_sha256),
