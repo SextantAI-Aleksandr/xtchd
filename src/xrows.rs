@@ -204,7 +204,7 @@ impl Xtchable for YoutubeVideo {
 
 impl AutoComp<String> for YoutubeVideo {
     fn query_autocomp() ->  &'static str {
-        "SELECT vid_pk, title 
+        "SELECT vid_pk, CONCAT(vid_pk, ' ', title) AS title 
         FROM youtube_videos
         WHERE ac @@ to_tsquery('simple', $1)
         ORDER BY LENGTH(title) DESC
@@ -297,7 +297,7 @@ pub struct ImageThumbnail {
 
 impl AutoComp<ImageThumbnail> for ImmutableImage {
     fn query_autocomp() ->  &'static str {
-        "SELECT img_id, alt, src_thmb
+        "SELECT img_id, CONCAT(COALESCE(archive,''), ' ', alt) AS alt, src_thmb
         FROM images
         WHERE ts @@ to_tsquery('english', $1)
         ORDER BY LENGTH(alt) ASC 
