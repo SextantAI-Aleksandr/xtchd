@@ -43,7 +43,7 @@ INSERT INTO authors (auth_id, name, prior_sha256, write_timestamp, new_sha256) V
 CREATE TABLE IF NOT EXISTS image_files (
 	-- filenames for non-hashed images (typically stock photos) stored at the /images/ path in 
 	image_file VARCHAR NOT NULL PRIMARY KEY, 	-- the filename for the image 
-	license_info VARCHAR NOT NULL,				-- the text to display next to the image
+	license_info VARCHAR,						-- the text to display next to the image
 	alt VARCHAR									-- alternate text for accessability 
 );
 
