@@ -3,7 +3,8 @@ use serde::{Serialize, Deserialize};
 use serde_json;
 use tokio_postgres;
 use pachydurable::{autocomplete::{AutoComp, WhoWhatWhere}, fulltext::FullText, redis::{Cacheable, CachedAutoComp, PreWarmDepth}};
-use crate::{integrity::{XtchdContent, XtchdSQL}, xrows};
+use webbuilder::graph3d::{Node, ToNode, ToNodeJSON, Edge, ToEdge, ToEdgeJSON};
+use crate::{integrity::{XtchdContent, XtchdSQL}, xrows::{self, Graph3dEdge, Graph3dNode}};
 
 
 /// The ArticleText struct contains the auth, title, and paragraph texts for an article.
@@ -65,6 +66,35 @@ impl CachedAutoComp<String> for Topic {
     }
 }
 
+
+#[derive(Serialize, Deserialize)]
+pub struct TopicProps {
+    /// The part of speech
+    pub pos: String,
+    /// the frequency of this topic 
+    pub ct: i16,   
+}
+
+
+impl ToNode<Graph3dNode, String, TopicProps> for Topic {
+    fn node_variant(&self) -> Graph3dNode {
+        Graph3dNode::Topic
+    }
+    fn node_pk(&self) -> String {
+        self.tkey.clone()
+    }
+    fn node_name(&self) -> String {
+        self.name.clone()
+    }
+    fn node_props(&self) -> TopicProps {
+        let pos = self.pos.clone();
+        let ct = self.count;
+        TopicProps{pos, ct}
+    }   
+}
+
+impl ToNodeJSON<Graph3dNode, String, TopicProps> for Topic {}
+
 /// When an article/paragraph includes a reference to an article, 
 /// the source is obvious from the article associated with the reference
 #[derive(Serialize, Deserialize)]
@@ -102,7 +132,7 @@ pub struct VideoRef {
 
 /// When an article/paragraph includes a reference to an image,
 /// The source is obvious from the article/paragraph making the reference 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct ImageRef {
     /// the primary key for this reference
     pub iref_id: i32,

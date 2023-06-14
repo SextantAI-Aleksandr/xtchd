@@ -17,6 +17,8 @@ sha2 = "0.10.6"
 tokio-postgres = "0.7.5"
 postgres = { version = "0.19.5", features = ["with-chrono-0_4"] }
 pachydurable = { path = "../../Aleksandr/pachydurable"}
+webbuilder = { path = "../webbuilder" }
+
 
 
 [dev-dependencies]

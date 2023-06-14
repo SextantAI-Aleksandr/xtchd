@@ -3,12 +3,15 @@
 //! Structs implement deserialization to aid in implementing the tokio_postgres::types::FromSql trait
 //! and implement serialization to aid in passing them over http. 
 
+use std::fmt;
 use chrono::NaiveDate;
 use serde::{Serialize, Deserialize};
 use serde_json;
 use tokio_postgres;
 use pachydurable::{autocomplete::{AutoComp, WhoWhatWhere}, fulltext::FullText, redis::{CachedAutoComp, PreWarmDepth}};
 use crate::integrity::{Xtchable, nonefmt};
+
+
 
 
 #[derive(Serialize, Deserialize)]
@@ -515,4 +518,54 @@ pub struct ArticleRefImageReq {
     pub rf: RefFrom,
     /// The id for the video being referenced
     pub img_id: i32,
+}
+
+
+
+#[derive(Serialize, Deserialize)]
+pub enum Graph3dEdge {
+    Authored,
+    References,
+    Mentions,
+    IncludesPara
+}
+
+impl fmt::Display for Graph3dEdge {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            Graph3dEdge::Authored => "authored",
+            Graph3dEdge::References => "refs",
+            Graph3dEdge::Mentions => "ment",
+            Graph3dEdge::IncludesPara => "para",
+        };
+        write!(f, "{}", s)
+    }
+}
+
+
+/// Each node should include the table propery indicating whence it came:
+/// Expressing that as an enum ensures it matches an exhaustive list 
+#[derive(Serialize, Deserialize)]
+pub enum Graph3dNode {
+    Author,
+    Article, 
+    Channel,
+    Topic,
+    Video,
+    Image,
+}
+
+
+impl fmt::Display for Graph3dNode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            Graph3dNode::Author => "author",
+            Graph3dNode::Article => "article",
+            Graph3dNode::Channel => "channel",
+            Graph3dNode::Topic => "topic",
+            Graph3dNode::Video => "video",
+            Graph3dNode::Image => "image",
+        };
+        write!(f, "{}", s)
+    }
 }
