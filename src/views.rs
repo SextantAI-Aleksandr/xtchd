@@ -3,7 +3,7 @@ use serde::{Serialize, Deserialize};
 use serde_json;
 use tokio_postgres;
 use pachydurable::{autocomplete::{AutoComp, WhoWhatWhere}, fulltext::FullText, redis::{Cacheable, CachedAutoComp, PreWarmDepth}};
-use webbuilder::graph3d::{Node, ToNode, ToNodeJSON, Edge, ToEdge, ToEdgeJSON};
+use tangentially::fd3d::{Node, ToNode, ToNodeJSON, Edge, ToEdge, ToEdgeJSON};
 use crate::{integrity::{XtchdContent, XtchdSQL}, xrows::{self, Graph3dEdge, Graph3dNode}};
 
 
@@ -112,6 +112,35 @@ pub struct ArticleRef {
 }
 
 
+
+/// this struct captures the properties include with an article when expressed as a node 
+#[derive(Serialize, Deserialize)]
+pub struct ArticleProps {
+    /// the author is optional here because it will be known when coming from the "main" article of an EnrichedArticle, 
+    /// but not for referenced articles 
+    pub author: Option<String>,
+}
+
+
+impl ToNode<Graph3dNode, i32, ArticleProps> for ArticleRef {
+    fn node_variant(&self) -> Graph3dNode {
+        Graph3dNode::Article
+    }
+    fn node_pk(&self) -> i32 {
+        self.art_id
+    }
+    fn node_name(&self) -> String {
+        self.title.clone()
+    }
+    fn node_props(&self) -> ArticleProps {
+        let author: Option<String> = None;
+        ArticleProps{author}
+    }
+}
+
+impl ToNodeJSON<Graph3dNode, i32, ArticleProps> for ArticleRef {}
+
+
 /// When an article/paragraph includes a reference to a video,
 /// The source is obvious from the article/paragraph making the reference 
 #[derive(Serialize, Deserialize)]
@@ -128,6 +157,31 @@ pub struct VideoRef {
     /// A comment on why the reference is relevant or what it shows
     pub comment: String,
 }
+
+
+/// This struct captures properties associated with a video node
+#[derive(Serialize, Deserialize)]
+pub struct VideoProps {
+    pub youtube_url: String,
+}
+
+impl ToNode<Graph3dNode, String, VideoProps> for VideoRef {
+    fn node_variant(&self) -> Graph3dNode {
+        Graph3dNode::Video
+    }
+    fn node_pk(&self) -> String {
+        self.vid_pk.clone()
+    }
+    fn node_name(&self) -> String {
+        self.title.clone()
+    }
+    fn node_props(&self) -> VideoProps {
+        let youtube_url = format!("https://www.youtube.com/watch?v={}", &self.vid_pk);
+        VideoProps{youtube_url}
+    }
+}
+
+impl ToNodeJSON<Graph3dNode, String, VideoProps> for VideoRef {}
 
 
 /// When an article/paragraph includes a reference to an image,
@@ -148,6 +202,25 @@ pub struct ImageRef {
     pub comment: String,
     
 }
+
+
+impl ToNode<Graph3dNode, i32, ImageRef> for ImageRef {
+    // Allow an image ref to be interpreted as a node for that image 
+    fn node_variant(&self) -> Graph3dNode {
+        Graph3dNode::Image
+    }
+    fn node_pk(&self) -> i32 {
+        self.img_id
+    }
+    fn node_name(&self) -> String {
+        self.alt.clone()
+    }
+    fn node_props(&self) -> ImageRef {
+        self.clone()
+    }
+}
+
+impl ToNodeJSON<Graph3dNode, i32, ImageRef> for ImageRef {}
 
 
 /// This struct represents a group of references to articles, videos, and images
