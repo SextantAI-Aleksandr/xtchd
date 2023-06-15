@@ -1,9 +1,9 @@
-use std::vec::Vec;
+use std::{fmt::{self, Display}, vec::Vec};
 use serde::{Serialize, Deserialize};
 use serde_json;
 use tokio_postgres;
 use pachydurable::{autocomplete::{AutoComp, WhoWhatWhere}, fulltext::FullText, redis::{Cacheable, CachedAutoComp, PreWarmDepth}};
-use tangentially::fd3d::{Node, ToNode, ToNodeJSON, Edge, ToEdge, ToEdgeJSON};
+use tangentially::fd3d::{Node, ToNode, ToNodeJSON, Edge, ToEdge, ToEdgeJSON, Graph, ToGraph};
 use crate::{integrity::{XtchdContent, XtchdSQL}, xrows::{self, Graph3dEdge, Graph3dNode}};
 
 
@@ -113,16 +113,9 @@ pub struct ArticleRef {
 
 
 
-/// this struct captures the properties include with an article when expressed as a node 
-#[derive(Serialize, Deserialize)]
-pub struct ArticleProps {
-    /// the author is optional here because it will be known when coming from the "main" article of an EnrichedArticle, 
-    /// but not for referenced articles 
-    pub author: Option<String>,
-}
 
 
-impl ToNode<Graph3dNode, i32, ArticleProps> for ArticleRef {
+impl ToNode<Graph3dNode, i32, xrows::ArticleProps> for ArticleRef {
     fn node_variant(&self) -> Graph3dNode {
         Graph3dNode::Article
     }
@@ -132,13 +125,13 @@ impl ToNode<Graph3dNode, i32, ArticleProps> for ArticleRef {
     fn node_name(&self) -> String {
         self.title.clone()
     }
-    fn node_props(&self) -> ArticleProps {
-        let author: Option<String> = None;
-        ArticleProps{author}
+    fn node_props(&self) -> xrows::ArticleProps {
+        let auth_id: Option<i32> = None;
+        xrows::ArticleProps{auth_id}
     }
 }
 
-impl ToNodeJSON<Graph3dNode, i32, ArticleProps> for ArticleRef {}
+impl ToNodeJSON<Graph3dNode, i32, xrows::ArticleProps> for ArticleRef {}
 
 
 /// When an article/paragraph includes a reference to a video,
@@ -199,8 +192,7 @@ pub struct ImageRef {
     /// optional url the image was captured / downloaded from
     pub url: Option<String>, 
     /// A comment on why the reference is relevant or what it shows
-    pub comment: String,
-    
+    pub comment: String,   
 }
 
 
@@ -339,5 +331,35 @@ impl<'a> tokio_postgres::types::FromSql<'a> for NameId {
 pub struct AuthorDetail {
     pub author: XtchdContent<xrows::Author>,
     pub articles: Vec<NameId>,
+}
+
+
+
+
+impl ToGraph for EnrichedArticle {
+    fn mut_graph(&self, graph: &mut Graph) -> Result<(), serde_json::Error> {
+        graph.add_node_from(&self.article.content)?;
+        for aref in &self.refs.articles {
+            graph.source_edge_target(&self.article.content, aref, "refs_article", ())?;
+        }
+        for vref in &self.refs.videos {
+            graph.source_edge_target(&self.article.content, vref, "refs_video", ())?;
+        }
+        for iref in &self.refs.images {
+            graph.source_edge_target(&self.article.content, iref, "refs_image", ())?;
+        }
+        for para in &self.paragraphs {
+            for aref in &para.refs.articles {
+                graph.source_edge_target(&self.article.content, aref, "refs_article", ())?;
+            }
+            for vref in &para.refs.videos {
+                graph.source_edge_target(&self.article.content, vref, "refs_video", ())?;
+            }
+            for iref in &para.refs.images {
+                graph.source_edge_target(&self.article.content, iref, "refs_image", ())?;
+            }
+        }
+        Ok(())
+    }
 }
 

@@ -9,6 +9,7 @@ use serde::{Serialize, Deserialize};
 use serde_json;
 use tokio_postgres;
 use pachydurable::{autocomplete::{AutoComp, WhoWhatWhere}, fulltext::FullText, redis::{CachedAutoComp, PreWarmDepth}};
+use tangentially::fd3d::{Node, ToNode, ToNodeJSON, Edge, ToEdge, ToEdgeJSON, Graph, ToGraph};
 use crate::integrity::{Xtchable, nonefmt};
 
 
@@ -104,6 +105,33 @@ impl CachedAutoComp<i32> for Article {
         PreWarmDepth::Char3
     }
 }
+
+
+/// this struct captures the properties include with an article when expressed as a node 
+#[derive(Serialize, Deserialize)]
+pub struct ArticleProps {
+    /// the auth_id is optional here because it will be known when coming from the "main" article of an EnrichedArticle, 
+    /// but not for referenced articles 
+    pub auth_id: Option<i32>,
+}
+
+impl ToNode<Graph3dNode, i32, ArticleProps> for Article {
+    fn node_variant(&self) -> Graph3dNode {
+        Graph3dNode::Article
+    }
+    fn node_pk(&self) -> i32 {
+        self.art_id
+    }
+    fn node_name(&self) -> String {
+        self.title.clone()
+    }
+    fn node_props(&self) -> ArticleProps {
+        let auth_id: Option<i32> = Some(self.auth_id);
+        ArticleProps{auth_id}
+    }
+}
+
+impl ToNodeJSON<Graph3dNode, i32, ArticleProps> for Article {}
 
 
 /// This struct corresponds to one article paragraph
