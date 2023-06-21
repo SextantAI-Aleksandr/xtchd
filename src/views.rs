@@ -36,6 +36,8 @@ pub struct Topic {
 }
 
 
+
+
 impl AutoComp<String> for Topic {
     fn query_autocomp() ->  &'static str {
         "SELECT tkey, name
@@ -94,6 +96,18 @@ impl ToNode<Graph3dNode, String, TopicProps> for Topic {
 }
 
 impl ToNodeJSON<Graph3dNode, String, TopicProps> for Topic {}
+
+
+impl<'a> tokio_postgres::types::FromSql<'a> for Topic {
+    fn from_sql(_ty: &tokio_postgres::types::Type, raw: &'a [u8]) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
+        let topic: Topic = serde_json::from_slice(raw)?;
+        Ok(topic)
+    }
+    fn accepts(_ty: &tokio_postgres::types::Type) -> bool {
+        true
+    }
+}
+
 
 /// When an article/paragraph includes a reference to an article, 
 /// the source is obvious from the article associated with the reference
