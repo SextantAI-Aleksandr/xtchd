@@ -573,7 +573,7 @@ impl fmt::Display for Graph3dEdge {
 
 /// Each node should include the table propery indicating whence it came:
 /// Expressing that as an enum ensures it matches an exhaustive list 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub enum Graph3dNode {
     Author,
     Article, 
