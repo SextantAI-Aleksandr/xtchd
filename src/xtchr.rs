@@ -166,10 +166,19 @@ impl Xtchr {
         let article = xrows::Article{art_id, auth_id, title, image_file};
         let hclink = HashChainLink::new(&last_article.prior_sha256, &article);
         let _x = self.c.execute("INSERT INTO articles
-            (                   prior_id,  art_id, auth_id,          title,               prior_sha256,         write_timestamp,          new_sha256,          image_file)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ",
-        &[&last_article.prior_id, &art_id, &auth_id, &article.title, &last_article.prior_sha256, &hclink.write_timestamp, &hclink.new_sha256(), &article.image_file ]
+            (                   prior_id,  art_id, auth_id,          title,               prior_sha256,         write_timestamp,          new_sha256)
+                VALUES ($1, $2, $3, $4, $5, $6, $7) ",
+        &[&last_article.prior_id, &art_id, &auth_id, &article.title, &last_article.prior_sha256, &hclink.write_timestamp, &hclink.new_sha256() ]
         ).await.unwrap();
+        match &article.image_file {
+            None => {},
+            Some(filename) => {
+                let _x = self.c.execute("INSERT INTO article_mut 
+                    (art_id, image_file) VALUES ($1, $2)
+                    ON CONFLICT (art_id) DO UPDATE SET image_file = $2",
+                    &[&article.art_id, &filename]).await.unwrap();
+            }
+        }
         Ok((article, hclink))
     }
 

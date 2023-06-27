@@ -52,7 +52,6 @@ CREATE TABLE IF NOT EXISTS articles (
 	art_id INTEGER NOT NULL PRIMARY KEY,
 	auth_id INTEGER NOT NULL,
 	title VARCHAR NOT NULL UNIQUE,
-	image_file VARCHAR, 			-- an image to use as the 'cover' for an article
 	prior_sha256 CHAR(64) NOT NULL, -- included for checking integrity
 	write_timestamp TIMESTAMPTZ NOT NULL,     
 	new_sha256 CHAR(64) NOT NULL,
@@ -76,21 +75,16 @@ CONSTRAINT art_verify_sha256 CHECK (
 		),
 	'hex') = new_sha256)
 );
-/*INSERT INTO articles (art_id, auth_id, title, prior_sha256, write_timestamp, new_sha256) 
-VALUES (0, 0, 'Initial Article', '0000000000000000000000000000000000000000000000000000000000000000',
-	CURRENT_TIMESTAMP, 
-	ENCODE(
-		SHA256(
-			CONCAT(
-				'art_id=', 0::VARCHAR,
-				' auth_id=', 0::VARCHAR,
-				' title=', 'Initial Article',
-				' write_timestamp=', TO_CHAR(CURRENT_TIMESTAMP, 'YYYY.MM.DD HH24:MI:SS'),
-				' prior_sha256=', '0000000000000000000000000000000000000000000000000000000000000000'
-			)::BYTEA
-		),
-	'hex')
-);*/
+
+
+CREATE TABLE IF NOT EXISTS article_mut (
+	/* Properties of an article that can be changed, such as the cover image,
+	are kept separately in this "mutable" table so they don't trigger an attempted rewrite if changed*/
+	art_id INTEGER NOT NULL PRIMARY KEY,
+	image_file VARCHAR,			-- an image to use as the 'cover' for an article
+CONSTRAINT amuta FOREIGN KEY (art_id) REFERENCES articles(art_id)
+);
+
 
 CREATE TABLE IF NOT EXISTS article_para (
 	prior_id INTEGER UNIQUE,
