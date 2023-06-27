@@ -27,13 +27,14 @@ CREATE VIEW article_text AS (
     ) AS author, 
     -- This JSON is for XtchdSQL<Article> which is converted to XtchdContent<Article> by the impl tokio_postgres::types::FromSql 
     JSON_BUILD_OBJECT('prior_id', ar.prior_id,
-        'content', JSON_BUILD_OBJECT('art_id', ar.art_id, 'auth_id', ar.auth_id, 'title', ar.title, 'image_file', ar.image_file),
+        'content', JSON_BUILD_OBJECT('art_id', ar.art_id, 'auth_id', ar.auth_id, 'title', ar.title, 'image_file', am.image_file),
         'prior_sha256', ar.prior_sha256, 'write_timestamp', ar.write_timestamp, 'new_sha256', ar.new_sha256
     ) AS article, 
     p.art_paras
     FROM articles ar
     LEFT JOIN authors au ON ar.auth_id = au.auth_id
     LEFT JOIN paragraphs p ON ar.art_id = p.art_id
+    LEFT JOIN article_mut am ON ar.art_id = am.art_id
 );
 
 
@@ -155,11 +156,12 @@ CREATE VIEW enriched_article_fields AS (
             'prior_sha256', au.prior_sha256, 'write_timestamp', au.write_timestamp, 'new_sha256', au.new_sha256
         ) AS author, -- This JSON is for XtchdSQL<Author> which is converted to XtchdContent<Author> by the impl tokio_postgres::types::FromSql 
         JSON_BUILD_OBJECT('prior_id', art.prior_id,
-            'content', JSON_BUILD_OBJECT('art_id', art.art_id, 'auth_id', art.auth_id, 'title', art.title, 'image_file', art.image_file),
+            'content', JSON_BUILD_OBJECT('art_id', art.art_id, 'auth_id', art.auth_id, 'title', art.title, 'image_file', am.image_file),
             'prior_sha256', art.prior_sha256, 'write_timestamp', art.write_timestamp, 'new_sha256', art.new_sha256
         ) AS article -- This JSON is for XtchdSQL<Article> which is converted to XtchdContent<Article> by the impl tokio_postgres::types::FromSql 
     FROM articles art
     LEFT JOIN epara_agg ON art.art_id = epara_agg.art_id
     LEFT JOIN authors au ON art.auth_id = au.auth_id
     LEFT JOIN combined_refs cr ON art.art_id = cr.art_id AND cr.apara_id = -1
+    LEFT JOIN article_mut am ON art.art_id = am.art_id
 );
