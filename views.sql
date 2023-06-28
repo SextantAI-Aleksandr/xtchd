@@ -99,6 +99,51 @@ CREATE VIEW topic_refs AS (
 );
 
 
+CREATE VIEW article_refd_by_articles AS (
+    /* this view yields Vec<views::RefdByArticle> for all of the INBOUND
+    references made TO an article FROM articles*/
+    SELECT refs_art AS art_id, COALESCE(refs_para, -1) AS apara_id,
+        ARRAY_AGG(JSON_BUILD_OBJECT(
+            'ref_id', aref_id, 'art_id', from_art, 'apara_id', from_para,
+            'title', a.title, 'comment',comment )) AS refd_by
+    FROM articles a 
+    LEFT JOIN article_ref_article ara
+        ON ara.from_art = a.art_id
+    GROUP BY (refs_art, apara_id)
+);
+
+
+CREATE VIEW video_refd_by_articles AS (
+    /* this view yields Vec<views::RefdByArticle> for all of the INBOUND
+    references made TO a video FROM articles*/
+    SELECT v.vid_pk,
+        ARRAY_AGG(JSON_BUILD_OBJECT(
+            'ref_id', vref_id, 'art_id', arv.art_id, 'apara_id', apara_id,
+            'title', a.title, 'comment',comment )) AS refd_by
+    FROM youtube_videos v 
+    LEFT JOIN article_ref_video arv
+        ON v.vid_pk = arv.vid_pk
+    LEFT JOIN articles a
+        ON arv.art_id = a.art_id
+    GROUP BY (v.vid_pk) 
+);
+
+
+CREATE VIEW image_refd_by_articles AS (
+    /* this view yields Vec<views::RefdByArticle> for all of the INBOUND
+    references made TO an image FROM articles*/
+    SELECT i.img_id,
+        ARRAY_AGG(JSON_BUILD_OBJECT(
+            'ref_id', iref_id, 'art_id', ari.art_id, 'apara_id', apara_id,
+            'title', a.title, 'comment', comment )) AS refd_by
+    FROM images i 
+    LEFT JOIN article_ref_image ari
+        ON i.img_id = ari.img_id
+    LEFT JOIN articles a
+        ON ari.art_id = a.art_id
+    GROUP BY (i.img_id) 
+);
+
 
 CREATE VIEW combined_refs AS (
     /* this view yields Vec<views::References> keyed by (art_id, apara_id)*/
@@ -164,4 +209,32 @@ CREATE VIEW enriched_article_fields AS (
     LEFT JOIN authors au ON art.auth_id = au.auth_id
     LEFT JOIN combined_refs cr ON art.art_id = cr.art_id AND cr.apara_id = -1
     LEFT JOIN article_mut am ON art.art_id = am.art_id
+);
+
+
+CREATE VIEW enriched_image_fields AS (
+    -- this view yields the fields needed for the views.rs::EnrichedImage struct, keyed by img_id
+    SELECT i.img_id, JSON_BUILD_OBJECT('prior_id', i.prior_id,
+            'content', JSON_BUILD_OBJECT('img_id', i.img_id,
+                'pair',JSON_BUILD_OBJECT('src_full', src_full, 'src_thmb', src_thmb, 'alt', alt, 'url', i.url, 'archive', archive)),
+            'prior_sha256', i.prior_sha256, 'write_timestamp', i.write_timestamp, 'new_sha256', i.new_sha256
+        ) AS image, -- This JSON is for XtchdSQL<xrows::ImagePair> which is converted to XtchdContent<Author> by the impl tokio_postgres::types::FromSql 
+    irba.refd_by AS refd_by
+    FROM images i 
+    LEFT JOIN image_refd_by_articles irba 
+        ON i.img_id = irba.img_id
+);
+
+
+CREATE VIEW enriched_video_fields AS (
+    -- this view yields the fields needed for the views.rs::EnrichedVideo struct, keyed by vid_pk 
+    SELECT v.vid_pk,
+        JSON_BUILD_OBJECT('chan_id', ch.chan_id, 'url', ch.url, 'name', ch.name) as channel,
+        JSON_BUILD_OBJECT('chan_id', ch.chan_id, 'vid_id', v.vid_id, 'vid_pk', v.vid_pk, 'title', v.title, 'date_uploaded', v.date_uploaded) as video,
+        vrba.refd_by AS refd_by
+    FROM youtube_videos v
+    LEFT JOIN youtube_channels ch 
+        ON v.chan_id = ch.chan_id 
+    LEFT JOIN video_refd_by_articles vrba 
+        ON v.vid_pk = vrba.vid_pk 
 );

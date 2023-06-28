@@ -116,21 +116,6 @@ CONSTRAINT apara_verify_sha256 CHECK (
 );
 CREATE INDEX article_fulltext ON article_para USING GIN(ts);
 INSERT INTO article_para (apara_id, art_id, md, prior_sha256, write_timestamp, new_sha256) 
-/*VALUES (0, 0, '*First Paragraph* of [Initial Article](www.xtchd.com) markdown!',
-	'0000000000000000000000000000000000000000000000000000000000000000',
-	CURRENT_TIMESTAMP, 
-	ENCODE(
-		SHA256(
-			CONCAT(
-				'apara_id=', 0::VARCHAR,
-				' art_id=', 0::VARCHAR,
-				' md=', '*First Paragraph* of [Initial Article](www.xtchd.com) markdown!',
-				' write_timestamp=', TO_CHAR(CURRENT_TIMESTAMP, 'YYYY.MM.DD HH24:MI:SS'),
-				' prior_sha256=','0000000000000000000000000000000000000000000000000000000000000000'
-			)::BYTEA
-		),
-	'hex')
-);*/
 
 
 

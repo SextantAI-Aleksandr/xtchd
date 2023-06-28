@@ -8,9 +8,9 @@ use chrono::NaiveDate;
 use serde::{Serialize, Deserialize};
 use serde_json;
 use tokio_postgres;
-use pachydurable::{autocomplete::{AutoComp, WhoWhatWhere}, fulltext::FullText, redis::{CachedAutoComp, PreWarmDepth}};
+use pachydurable::{autocomplete::{AutoComp, WhoWhatWhere}, fulltext::FullText, redis::{Cacheable, CachedAutoComp, PreWarmDepth}};
 use tangentially::fd3d::{Node, ToNode, ToNodeJSON, Edge, ToEdge, ToEdgeJSON, Graph, ToGraph};
-use crate::integrity::{Xtchable, nonefmt};
+use crate::integrity::{Xtchable, nonefmt, XtchdContent};
 
 
 
@@ -284,6 +284,7 @@ pub struct ImagePair {
 }
 
 
+
 /// MutableImages are typically used for article thumbnails:
 /// i.e. they are a bit arbitrary and only need to roughly indicate the content of the article
 #[derive(Deserialize)]
@@ -298,6 +299,7 @@ pub struct MutableImage {
 /// An ImmutableImage is used for images within an article. The assumption is that 
 /// the image "matters" and needs to "prove a point" (in contrast to MutableImages),
 /// Hence the Xtchable trait is implemented so that the integrity of an ImmutableImage can be verified 
+#[derive(Serialize, Deserialize)]
 pub struct ImmutableImage {
     /// an image_id provided by the database 
     pub img_id: i32,
@@ -316,7 +318,6 @@ impl Xtchable for ImmutableImage {
     }
 
 }
-
 
 /// This struct is useful for autocompletion of results for immutable images 
 #[derive(Serialize, Deserialize)]

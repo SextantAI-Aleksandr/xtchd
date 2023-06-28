@@ -128,7 +128,6 @@ pub struct ArticleRef {
 
 
 
-
 impl ToNode<Graph3dNode, i32, xrows::ArticleProps> for ArticleRef {
     fn node_variant(&self) -> Graph3dNode {
         Graph3dNode::Article
@@ -292,6 +291,8 @@ pub struct EnrichedArticle {
     pub refs: References,
     /// Each of the paragraphs from the article, enriched with references and with topics extracted using NLP
     pub paragraphs: Vec<EnrichedPara>,
+    /// Arrticles that reference this article
+    pub refd_by: Vec<RefdByArticle>,
 }
 
 
@@ -377,3 +378,79 @@ impl ToGraph for EnrichedArticle {
     }
 }
 
+
+/// When a user clicks on an image, this struct is returned to provide more detail on the image.
+/// including the fullsize image, proof of immutability, and the articles referencing the images
+#[derive(Serialize, Deserialize)]
+pub struct EnrichedImage {
+    /// the fullsize + thumbnail images with proof of immutability
+    pub image: XtchdContent<xrows::ImmutableImage>,
+    /// The articles that reference this image 
+    pub refd_by: Vec<RefdByArticle>
+}
+
+
+impl Cacheable for EnrichedImage {
+
+    fn key_prefix() ->  &'static str {
+        "image"
+    }
+
+    fn seconds_expiry() -> usize {
+        (60*60*24*7) as usize // one week expiry
+    }
+
+    fn query() ->  &'static str {
+        CONTINUE HERE 
+        " FIX THIS SELECT author, article, refs, paragraphs FROM enriched_article_fields WHERE art_id = $1"
+    }
+
+
+    fn from_row(row: &tokio_postgres::Row) -> Self {
+        CONTINUE HERE 
+        let author: XtchdContent<xrows::Author> = row.get(0);
+        let article: XtchdContent<xrows::Article> = row.get(1);
+        let refs: References = row.get(2);
+        let paragraphs: Vec<EnrichedPara> = row.get(3);
+        EnrichedArticle{author, article, refs, paragraphs}
+        
+    }
+}
+
+
+/// When a user clicks on a youtube video, this struct is returned to provide more detail 
+/// including the video, the channel, and the articles referencing the video 
+#[derive(Serialize, Deserialize)]
+pub struct EnrichedVideo {
+    pub channel: xrows::YoutubeChannel,
+    pub video: xrows::YoutubeVideo,
+    pub refd_by: Vec<RefdByArticle>,
+}
+
+
+
+/// When something is referenced by an article, this struct captures that
+#[derive(Serialize, Deserialize)]
+pub struct RefdByArticle {
+    /// The primary key for this reference
+    /// This will be an aref_id, vref_id, or iref_id depending on the case
+    pub ref_id: i32,
+    /// The id for the article making the reference
+    pub art_id: i32,
+    /// Optional paragraph id for a paragraph within that article
+    pub apara_id: Option<i32>,
+    /// The title of the article making the referenced 
+    pub title: String,
+    /// A comment on why the reference is relevant or what it shows
+    pub comment: String,
+}
+
+impl<'a> tokio_postgres::types::FromSql<'a> for RefdByArticle {
+    fn from_sql(_ty: &tokio_postgres::types::Type, raw: &'a [u8]) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
+        let rba: RefdByArticle = serde_json::from_slice(raw)?;
+        Ok(rba)
+    }
+    fn accepts(_ty: &tokio_postgres::types::Type) -> bool {
+        true
+    }
+}
