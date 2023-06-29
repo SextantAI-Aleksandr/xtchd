@@ -307,7 +307,7 @@ impl Cacheable for EnrichedArticle {
     }
 
     fn query() ->  &'static str {
-        "SELECT author, article, refs, paragraphs FROM enriched_article_fields WHERE art_id = $1"
+        "SELECT author, article, refs, paragraphs, refd_by FROM enriched_article_fields WHERE art_id = $1"
     }
 
 
@@ -316,7 +316,8 @@ impl Cacheable for EnrichedArticle {
         let article: XtchdContent<xrows::Article> = row.get(1);
         let refs: References = row.get(2);
         let paragraphs: Vec<EnrichedPara> = row.get(3);
-        EnrichedArticle{author, article, refs, paragraphs}
+        let refd_by: Vec<RefdByArticle> = row.get(4);
+        EnrichedArticle{author, article, refs, paragraphs, refd_by}
         
     }
 }
@@ -355,23 +356,23 @@ impl ToGraph for EnrichedArticle {
     fn mut_graph(&self, graph: &mut Graph) -> Result<(), serde_json::Error> {
         graph.add_node_from(&self.article.content)?;
         for aref in &self.refs.articles {
-            graph.source_edge_target(&self.article.content, aref, "refs_article", ())?;
+            graph.source_edge_target(&self.article.content, aref, Graph3dEdge::References, ())?;
         }
         for vref in &self.refs.videos {
-            graph.source_edge_target(&self.article.content, vref, "refs_video", ())?;
+            graph.source_edge_target(&self.article.content, vref, Graph3dEdge::References, ())?;
         }
         for iref in &self.refs.images {
-            graph.source_edge_target(&self.article.content, iref, "refs_image", ())?;
+            graph.source_edge_target(&self.article.content, iref, Graph3dEdge::References, ())?;
         }
         for para in &self.paragraphs {
             for aref in &para.refs.articles {
-                graph.source_edge_target(&self.article.content, aref, "refs_article", ())?;
+                graph.source_edge_target(&self.article.content, aref, Graph3dEdge::References, ())?;
             }
             for vref in &para.refs.videos {
-                graph.source_edge_target(&self.article.content, vref, "refs_video", ())?;
+                graph.source_edge_target(&self.article.content, vref, Graph3dEdge::References, ())?;
             }
             for iref in &para.refs.images {
-                graph.source_edge_target(&self.article.content, iref, "refs_image", ())?;
+                graph.source_edge_target(&self.article.content, iref, Graph3dEdge::References, ())?;
             }
         }
         Ok(())
@@ -401,19 +402,23 @@ impl Cacheable for EnrichedImage {
     }
 
     fn query() ->  &'static str {
-        CONTINUE HERE 
-        " FIX THIS SELECT author, article, refs, paragraphs FROM enriched_article_fields WHERE art_id = $1"
+        "SELECT image, refd_by FROM enriched_image_fields WHERE img_id = $1"
     }
 
-
     fn from_row(row: &tokio_postgres::Row) -> Self {
-        CONTINUE HERE 
-        let author: XtchdContent<xrows::Author> = row.get(0);
-        let article: XtchdContent<xrows::Article> = row.get(1);
-        let refs: References = row.get(2);
-        let paragraphs: Vec<EnrichedPara> = row.get(3);
-        EnrichedArticle{author, article, refs, paragraphs}
-        
+        let image: XtchdContent<xrows::ImmutableImage> = row.get(0);
+        let refd_by: Vec<RefdByArticle> = row.get(1);
+        EnrichedImage{image, refd_by}
+    }
+}
+
+
+impl ToGraph for EnrichedImage {
+    fn mut_graph(&self, graph: &mut Graph) -> Result<(), serde_json::Error> {
+        for rba in &self.refd_by {
+            graph.source_edge_target(rba, &self.image.content, Graph3dEdge::References, ())?;
+        }
+        Ok(())
     }
 }
 
@@ -426,6 +431,42 @@ pub struct EnrichedVideo {
     pub video: xrows::YoutubeVideo,
     pub refd_by: Vec<RefdByArticle>,
 }
+
+impl Cacheable for EnrichedVideo {
+
+    fn key_prefix() ->  &'static str {
+        "video"
+    }
+
+    fn seconds_expiry() -> usize {
+        (60*60*24*7) as usize // one week expiry
+    }
+
+    fn query() ->  &'static str {
+        "SELECT channel, video, refd_by FROM enriched_video_fields WHERE vid_pk = $1"
+    }
+
+    fn from_row(row: &tokio_postgres::Row) -> Self {
+        let channel: xrows::YoutubeChannel = row.get(0);
+        let video: xrows::YoutubeVideo = row.get(1);
+        let refd_by: Vec<RefdByArticle> = row.get(2);
+        EnrichedVideo{channel, video, refd_by}
+    }
+}
+
+
+impl ToGraph for EnrichedVideo {
+    fn mut_graph(&self, graph: &mut Graph) -> Result<(), serde_json::Error> {
+        for rba in &self.refd_by {
+            // link each article referencing the video
+            graph.source_edge_target(rba, &self.video, Graph3dEdge::References, ())?;
+        }
+        // link the channel to the video
+        graph.source_edge_target(&self.channel, &self.video, Graph3dEdge::Authored, ())?;
+        Ok(())
+    }
+}
+
 
 
 
@@ -443,6 +484,23 @@ pub struct RefdByArticle {
     pub title: String,
     /// A comment on why the reference is relevant or what it shows
     pub comment: String,
+}
+
+
+impl ToNode<Graph3dNode, i32, xrows::ArticleProps> for RefdByArticle {
+    fn node_variant(&self) -> Graph3dNode {
+        Graph3dNode::Article
+    }
+    fn node_pk(&self) -> i32 {
+        self.art_id
+    }
+    fn node_name(&self) -> String {
+        self.title.clone()
+    }
+    fn node_props(&self) -> xrows::ArticleProps {
+        let auth_id: Option<i32> = None;
+        xrows::ArticleProps{auth_id}
+    }
 }
 
 impl<'a> tokio_postgres::types::FromSql<'a> for RefdByArticle {

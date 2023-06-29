@@ -203,12 +203,14 @@ CREATE VIEW enriched_article_fields AS (
         JSON_BUILD_OBJECT('prior_id', art.prior_id,
             'content', JSON_BUILD_OBJECT('art_id', art.art_id, 'auth_id', art.auth_id, 'title', art.title, 'image_file', am.image_file),
             'prior_sha256', art.prior_sha256, 'write_timestamp', art.write_timestamp, 'new_sha256', art.new_sha256
-        ) AS article -- This JSON is for XtchdSQL<Article> which is converted to XtchdContent<Article> by the impl tokio_postgres::types::FromSql 
+        ) AS article, -- This JSON is for XtchdSQL<Article> which is converted to XtchdContent<Article> by the impl tokio_postgres::types::FromSql 
+        arba.refd_by
     FROM articles art
     LEFT JOIN epara_agg ON art.art_id = epara_agg.art_id
     LEFT JOIN authors au ON art.auth_id = au.auth_id
     LEFT JOIN combined_refs cr ON art.art_id = cr.art_id AND cr.apara_id = -1
     LEFT JOIN article_mut am ON art.art_id = am.art_id
+    LEFT JOIN article_refd_by_articles arba ON art.art_id = arba.art_id
 );
 
 

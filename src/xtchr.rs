@@ -133,6 +133,24 @@ impl Xtchr {
         }
     }
 
+    /// Get an enriched image struct given the image id
+    pub async fn enriched_image(&self, rpool: &predis::RedisPool, img_id: i32) -> Result<views::EnrichedImage, DiskError> {
+        let oei: Option<views::EnrichedImage> = predis::cached_or_cache(&self.c, rpool, &[&img_id]).await.unwrap();
+        match oei {
+            Some(ei) => Ok(ei),
+            None => Err(DiskError::missing_row()),
+        }
+    }
+
+    /// Get an enriched video struct given the video vid_pk
+    pub async fn enriched_video(&self, rpool: &predis::RedisPool, vid_pk: &str) -> Result<views::EnrichedVideo, DiskError> {
+        let oev: Option<views::EnrichedVideo> = predis::cached_or_cache(&self.c, rpool, &[&vid_pk]).await.unwrap();
+        match oev {
+            Some(ev) => Ok(ev),
+            None => Err(DiskError::missing_row()),
+        }
+    }
+
 
     // add an author
     pub async fn add_author(&self, name: &str) -> Result<(xrows::Author, HashChainLink), DiskError> {

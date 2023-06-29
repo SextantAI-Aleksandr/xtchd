@@ -169,7 +169,7 @@ impl FullText for ArticlePara {
 
 
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct YoutubeChannel {
     pub chan_id: i32,   // the primary key for this channel
     pub url: String,    // typically c/ChannelName etc.
@@ -184,6 +184,24 @@ impl Xtchable for YoutubeChannel {
         "YoutubeChannel"
     }
 }
+
+impl ToNode<Graph3dNode, i32, YoutubeChannel> for YoutubeChannel {
+    fn node_variant(&self) -> Graph3dNode {
+        Graph3dNode::Channel
+    }
+    fn node_pk(&self) -> i32 {
+        self.chan_id
+    }
+    fn node_name(&self) -> String {
+        self.name.clone()
+    }
+    fn node_props(&self) -> YoutubeChannel {
+        self.clone()
+    }
+}
+
+impl ToNodeJSON<Graph3dNode, i32, YoutubeChannel> for YoutubeChannel{}
+
 
 impl AutoComp<i32> for YoutubeChannel {
     fn query_autocomp() -> &'static str {
@@ -214,6 +232,18 @@ impl CachedAutoComp<i32> for YoutubeChannel {
     }
 }
 
+impl<'a> tokio_postgres::types::FromSql<'a> for YoutubeChannel {
+    fn from_sql(_ty: &tokio_postgres::types::Type, raw: &'a [u8]) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
+        let channel: YoutubeChannel = serde_json::from_slice(raw)?;
+        Ok(channel)
+    }
+    fn accepts(_ty: &tokio_postgres::types::Type) -> bool {
+        true
+    }
+}
+
+
+
 #[derive(Serialize, Deserialize)]
 pub struct YoutubeVideo {
     pub chan_id: i32,       // The id for the channel,
@@ -232,6 +262,23 @@ impl Xtchable for YoutubeVideo {
     }
 }
 
+
+impl ToNode<Graph3dNode, String, i32> for YoutubeVideo {
+    fn node_variant(&self) -> Graph3dNode {
+        Graph3dNode::Video
+    }
+    fn node_pk(&self) -> String {
+        self.vid_pk.clone()
+    }
+    fn node_name(&self) -> String {
+        self.title.clone()
+    }
+    fn node_props(&self) -> i32 {
+        self.vid_id
+    }
+}
+
+impl ToNodeJSON<Graph3dNode, String, i32> for YoutubeVideo{}
 
 impl AutoComp<String> for YoutubeVideo {
     fn query_autocomp() ->  &'static str {
@@ -259,6 +306,16 @@ impl CachedAutoComp<String> for YoutubeVideo {
     }
     fn prewarm_depth() -> PreWarmDepth {
         PreWarmDepth::Char3
+    }
+}
+
+impl<'a> tokio_postgres::types::FromSql<'a> for YoutubeVideo {
+    fn from_sql(_ty: &tokio_postgres::types::Type, raw: &'a [u8]) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
+        let video: YoutubeVideo = serde_json::from_slice(raw)?;
+        Ok(video)
+    }
+    fn accepts(_ty: &tokio_postgres::types::Type) -> bool {
+        true
     }
 }
 
@@ -316,8 +373,26 @@ impl Xtchable for ImmutableImage {
     fn dtype() -> &'static str {
         "Image"
     }
-
 }
+
+impl ToNode<Graph3dNode, i32, ImageThumbnail> for ImmutableImage {
+    fn node_variant(&self) -> Graph3dNode {
+        Graph3dNode::Image
+    }
+    fn node_pk(&self) -> i32 {
+        self.img_id
+    }
+    fn node_name(&self) -> String {
+        self.pair.alt.clone()
+    }
+    fn node_props(&self) -> ImageThumbnail {
+        let src_thmb = self.pair.src_thmb.clone();
+        ImageThumbnail{img_id: self.img_id, src_thmb}
+    }
+}
+
+impl ToNodeJSON<Graph3dNode, i32, ImageThumbnail> for ImmutableImage {}
+
 
 /// This struct is useful for autocompletion of results for immutable images 
 #[derive(Serialize, Deserialize)]
@@ -559,15 +634,22 @@ pub enum Graph3dEdge {
     IncludesPara
 }
 
-impl fmt::Display for Graph3dEdge {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
+impl Graph3dEdge {
+    pub fn variant_str(&self) -> &'static str {
+        match self {
             Graph3dEdge::Authored => "authored",
             Graph3dEdge::References => "refs",
             Graph3dEdge::Mentions => "ment",
             Graph3dEdge::IncludesPara => "para",
-        };
-        write!(f, "{}", s)
+        }
+    }
+}
+
+
+
+impl fmt::Display for Graph3dEdge {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.variant_str())
     }
 }
 
@@ -585,16 +667,22 @@ pub enum Graph3dNode {
 }
 
 
-impl fmt::Display for Graph3dNode {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
+impl Graph3dNode {
+    pub fn variant_str(&self) -> &'static str {
+        match self {
             Graph3dNode::Author => "author",
             Graph3dNode::Article => "article",
             Graph3dNode::Channel => "channel",
             Graph3dNode::Topic => "topic",
             Graph3dNode::Video => "video",
             Graph3dNode::Image => "image",
-        };
-        write!(f, "{}", s)
+        }
+    }
+}
+
+
+impl fmt::Display for Graph3dNode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.variant_str())
     }
 }
