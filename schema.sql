@@ -148,6 +148,7 @@ CREATE TABLE IF NOT EXISTS images (
 	new_sha256 CHAR(64) NOT NULL,				-- new sha256 based on the below constraint
 	UNIQUE(img_id, new_sha256),				-- this allows the below constraint 
 	ts tsvector GENERATED ALWAYS AS ( to_tsvector('english', alt || ' ' || archive )) STORED,
+	ac tsvector GENERATED ALWAYS AS ( to_tsvector('simple', alt || ' ' || archive )) STORED,
 	CONSTRAINT img_prior CHECK ( (img_id = 0) OR ((prior_id IS NOT NULL) AND (prior_id = img_id - 1)) ),
 	CONSTRAINT img_no_delete FOREIGN KEY (prior_id, prior_sha256) REFERENCES images (img_id, new_sha256),
 	CONSTRAINT img_no_rewrite_later CHECK (EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - write_timestamp)) <= 1),

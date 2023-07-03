@@ -406,7 +406,7 @@ impl AutoComp<ImageThumbnail> for ImmutableImage {
     fn query_autocomp() ->  &'static str {
         "SELECT img_id, CONCAT(COALESCE(archive,''), ' ', alt) AS alt, src_thmb
         FROM images
-        WHERE ts @@ to_tsquery('english', $1)
+        WHERE (ac @@ to_tsquery('simple', $1) OR archive = $1)
         ORDER BY LENGTH(alt) ASC 
         LIMIT 10;"
     }
