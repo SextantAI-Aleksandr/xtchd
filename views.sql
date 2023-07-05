@@ -102,14 +102,17 @@ CREATE VIEW topic_refs AS (
 CREATE VIEW article_refd_by_articles AS (
     /* this view yields Vec<views::RefdByArticle> for all of the INBOUND
     references made TO an article FROM articles*/
-    SELECT refs_art AS art_id, COALESCE(refs_para, -1) AS apara_id,
+    SELECT ra.art_id, COALESCE(refs_para, -1) AS apara_id,
         ARRAY_AGG(JSON_BUILD_OBJECT(
             'ref_id', aref_id, 'art_id', from_art, 'apara_id', from_para,
-            'title', a.title, 'comment',comment )) AS refd_by
-    FROM articles a 
-    LEFT JOIN article_ref_article ara
-        ON ara.from_art = a.art_id
-    GROUP BY (refs_art, apara_id)
+            'title', fa.title, 'comment',comment ))
+        AS refd_by
+    FROM articles ra        -- ra = referenced article
+    INNER JOIN article_ref_article ara
+        ON ara.refs_art = ra.art_id
+    INNER JOIN articles fa   -- fa = from article
+        ON ara.from_art = fa.art_id
+    GROUP BY (ra.art_id, apara_id)
 );
 
 
@@ -204,7 +207,7 @@ CREATE VIEW enriched_article_fields AS (
             'content', JSON_BUILD_OBJECT('art_id', art.art_id, 'auth_id', art.auth_id, 'title', art.title, 'image_file', am.image_file),
             'prior_sha256', art.prior_sha256, 'write_timestamp', art.write_timestamp, 'new_sha256', art.new_sha256
         ) AS article, -- This JSON is for XtchdSQL<Article> which is converted to XtchdContent<Article> by the impl tokio_postgres::types::FromSql 
-        arba.refd_by
+        CASE WHEN arba.art_id IS NULL THEN ARRAY[]::JSON[] ELSE arba.refd_by END AS refd_by
     FROM articles art
     LEFT JOIN epara_agg ON art.art_id = epara_agg.art_id
     LEFT JOIN authors au ON art.auth_id = au.auth_id
