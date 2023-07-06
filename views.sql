@@ -132,19 +132,26 @@ CREATE VIEW video_refd_by_articles AS (
 );
 
 
+
+CREATE VIEW image_references AS (
+    -- this view is used to make reasoning about image_refd_by_articles easier
+    SELECT ari.img_id, ari.art_id, apara_id, JSON_BUILD_OBJECT(
+        'ref_id', iref_id, 'art_id', ari.art_id, 'apara_id', apara_id,
+        'title', a.title, 'comment', comment ) AS ref
+    FROM article_ref_image ari
+    LEFT JOIN articles a ON ari.art_id = a.art_id
+);
+
+
 CREATE VIEW image_refd_by_articles AS (
     /* this view yields Vec<views::RefdByArticle> for all of the INBOUND
     references made TO an image FROM articles*/
-    SELECT i.img_id,
-        ARRAY_AGG(JSON_BUILD_OBJECT(
-            'ref_id', iref_id, 'art_id', ari.art_id, 'apara_id', apara_id,
-            'title', a.title, 'comment', comment )) AS refd_by
+    WITH image_all_references AS (
+        SELECT img_id, ARRAY_AGG(ref) AS refs 
+        FROM image_references GROUP BY img_id
+    ) SELECT i.img_id, COALESCE(ir.refs, '{}'::JSON[]) AS refd_by
     FROM images i 
-    LEFT JOIN article_ref_image ari
-        ON i.img_id = ari.img_id
-    LEFT JOIN articles a
-        ON ari.art_id = a.art_id
-    GROUP BY (i.img_id) 
+    LEFT JOIN image_all_references ir ON i.img_id = ir.img_id
 );
 
 
