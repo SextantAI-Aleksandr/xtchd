@@ -3,7 +3,7 @@ use serde::{Serialize, Deserialize};
 use serde_json;
 use tokio_postgres;
 use pachydurable::{autocomplete::{AutoComp, WhoWhatWhere}, fulltext::FullText, redis::{Cacheable, CachedAutoComp, PreWarmDepth}};
-use tangentially::fd3d::{Node, ToNode, ToNodeJSON, Edge, ToEdge, ToEdgeJSON, Graph, ToGraph};
+use tangentially::fd3d::{Node, ToNode, ToNodeJSON, Edge, ToEdge, ToEdgeJSON, Graph, ToGraph, ZoomNode};
 use crate::{integrity::{XtchdContent, XtchdSQL}, xrows::{self, Graph3dEdge, Graph3dNode}};
 
 
@@ -379,6 +379,14 @@ impl ToGraph for EnrichedArticle {
     }
 }
 
+impl ZoomNode<Graph3dNode, i32> for EnrichedArticle {
+    fn zoom_to(&self) -> Option<(Graph3dNode, i32)> {
+        let variant = self.article.content.node_variant();
+        let variant_pk = self.article.content.art_id;
+        Some((variant, variant_pk))
+    }
+}
+
 
 /// When a user clicks on an image, this struct is returned to provide more detail on the image.
 /// including the fullsize image, proof of immutability, and the articles referencing the images
@@ -421,6 +429,16 @@ impl ToGraph for EnrichedImage {
         Ok(())
     }
 }
+
+
+impl ZoomNode<Graph3dNode, i32> for EnrichedImage {
+    fn zoom_to(&self) -> Option<(Graph3dNode, i32)> {
+        let variant = self.image.content.node_variant();
+        let variant_pk = self.image.content.node_pk();
+        Some((variant, variant_pk))
+    }
+}
+
 
 
 /// When a user clicks on a youtube video, this struct is returned to provide more detail 
@@ -467,6 +485,13 @@ impl ToGraph for EnrichedVideo {
     }
 }
 
+impl ZoomNode<Graph3dNode, String> for EnrichedVideo {
+    fn zoom_to(&self) -> Option<(Graph3dNode, String)> {
+        let variant = self.video.node_variant();
+        let variant_pk = self.video.node_pk();
+        Some((variant, variant_pk))
+    }
+}
 
 
 
