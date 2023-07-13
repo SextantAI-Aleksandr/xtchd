@@ -423,6 +423,8 @@ impl Cacheable for EnrichedImage {
 
 impl ToGraph for EnrichedImage {
     fn mut_graph(&self, graph: &mut Graph) -> Result<(), serde_json::Error> {
+        // add the image- otherwise it would not show if there are no .refd_by references!
+        graph.add_node_from(&self.image.content)?;
         for rba in &self.refd_by {
             graph.source_edge_target(rba, &self.image.content, Graph3dEdge::References, ())?;
         }
