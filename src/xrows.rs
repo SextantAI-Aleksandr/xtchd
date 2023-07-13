@@ -637,10 +637,13 @@ pub enum Graph3dEdge {
 impl Graph3dEdge {
     pub fn variant_str(&self) -> &'static str {
         match self {
-            Graph3dEdge::Authored => "authored",
-            Graph3dEdge::References => "refs",
-            Graph3dEdge::Mentions => "ment",
-            Graph3dEdge::IncludesPara => "para",
+            // recall that the to_node_json method on the tangentially::Node struct
+            // just serializes things. Ensure you DON'T change these names so they match the form
+            // given by serialization
+            Graph3dEdge::Authored => "Authored",
+            Graph3dEdge::References => "References",
+            Graph3dEdge::Mentions => "Mentions",
+            Graph3dEdge::IncludesPara => "IncludesPara",
         }
     }
 }
@@ -670,12 +673,15 @@ pub enum Graph3dNode {
 impl Graph3dNode {
     pub fn variant_str(&self) -> &'static str {
         match self {
-            Graph3dNode::Author => "author",
-            Graph3dNode::Article => "article",
-            Graph3dNode::Channel => "channel",
-            Graph3dNode::Topic => "topic",
-            Graph3dNode::Video => "video",
-            Graph3dNode::Image => "image",
+            // recall that the to_node_json method on the tangentially::Node struct
+            // just serializes things. Ensure you DON'T change these names so they match the form
+            // given by serialization
+            Graph3dNode::Author => "Author",
+            Graph3dNode::Article => "Article",
+            Graph3dNode::Channel => "Channel",
+            Graph3dNode::Topic => "Topic",
+            Graph3dNode::Video => "Video",
+            Graph3dNode::Image => "Image",
         }
     }
 }
