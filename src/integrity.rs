@@ -1,5 +1,5 @@
 
-use std::hash::Hash;
+
 use serde::{Serialize, Deserialize, de::DeserializeOwned};
 use serde_json;
 use tokio_postgres;

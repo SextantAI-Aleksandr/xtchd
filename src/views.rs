@@ -1,9 +1,9 @@
-use std::{fmt::{self, Display}, vec::Vec};
+use std::{vec::Vec};
 use serde::{Serialize, Deserialize};
 use serde_json;
 use tokio_postgres;
-use pachydurable::{autocomplete::{AutoComp, WhoWhatWhere}, fulltext::FullText, redis::{Cacheable, CachedAutoComp, PreWarmDepth}};
-use tangentially::fd3d::{Node, ToNode, ToNodeJSON, Edge, ToEdge, ToEdgeJSON, Graph, ToGraph, ZoomNode};
+use pachydurable::{autocomplete::{AutoComp, WhoWhatWhere}, redis::{Cacheable, CachedAutoComp, PreWarmDepth}};
+use tangentially::fd3d::{ToNode, ToNodeJSON, Graph, ToGraph, ZoomNode};
 use crate::{integrity::{XtchdContent, XtchdSQL}, xrows::{self, Graph3dEdge, Graph3dNode}};
 
 

@@ -8,9 +8,9 @@ use chrono::NaiveDate;
 use serde::{Serialize, Deserialize};
 use serde_json;
 use tokio_postgres;
-use pachydurable::{autocomplete::{AutoComp, WhoWhatWhere}, fulltext::FullText, redis::{Cacheable, CachedAutoComp, PreWarmDepth}};
-use tangentially::fd3d::{Node, ToNode, ToNodeJSON, Edge, ToEdge, ToEdgeJSON, Graph, ToGraph};
-use crate::integrity::{Xtchable, nonefmt, XtchdContent};
+use pachydurable::{autocomplete::{AutoComp, WhoWhatWhere}, fulltext::FullText, redis::{CachedAutoComp, PreWarmDepth}};
+use tangentially::fd3d::{ToNode, ToNodeJSON};
+use crate::integrity::{Xtchable, nonefmt};
 
 
 
