@@ -3,7 +3,7 @@
 //! with cryptographic verification. 
 
 use chrono::{NaiveDate, DateTime, offset::Utc};
-use pachydurable::{connect::{ConnPoolNoTLS, ClientNoTLS, pool_no_tls_from_env}, err::DiskError};
+use pachydurable::{connect::{ConnPoolNoTLS, ClientNoTLS, pool_no_tls_from_env}, err::{PachyDarn, MissingRowError}};
 use pachydurable::redis as predis;
 use crate::{xrows, views, integrity::{XtchdContent, HashChainLink}};
 
@@ -27,7 +27,7 @@ impl LastRow {
 /// This function is intended to get a query that sorts by id (returning the highest/latest)
 /// for use in tables with hash integrity.
 /// If no prior entry has been make, it will return a default value 
-async fn get_last_row(c: &ClientNoTLS, query: &'static str) -> Result<LastRow, DiskError> {
+async fn get_last_row(c: &ClientNoTLS, query: &'static str) -> Result<LastRow, PachyDarn> {
     let rows = c.query(query, &[]).await?;
     let (prior_id, prior_sha256) = match rows.get(0) {
         Some(row) => (Some(row.get(0)), row.get(1)),
@@ -55,7 +55,7 @@ impl Pool {
     }
 
 
-    pub async fn get(&self) -> Result<Xtchr, DiskError> {
+    pub async fn get(&self) -> Result<Xtchr, PachyDarn> {
         let c = self.pool.get().await.unwrap();
         Ok(Xtchr{c})
     }
@@ -72,7 +72,7 @@ impl Xtchr {
 
     /// This method is called to get the most recent articles (but not the associated text)
     /// Think of it as giving the headline for the most recent articles
-    pub async fn latest_headlines(&self) -> Result<Vec<xrows::Article>, DiskError> {
+    pub async fn latest_headlines(&self) -> Result<Vec<xrows::Article>, PachyDarn> {
         let query = "SELECT art_id, auth_id, title, image_file FROM articles 
             ORDER BY art_id DESC LIMIT 12";
         let rows = self.c.query(query, &[]).await?;
@@ -89,12 +89,12 @@ impl Xtchr {
 
 
     /// Get one article, specified by id 
-    pub async fn article_text(&self, art_id: i32) -> Result<views::ArticleText, DiskError> {
+    pub async fn article_text(&self, art_id: i32) -> Result<views::ArticleText, PachyDarn> {
         let query = "SELECT author, article, art_paras FROM article_text WHERE art_id = $1";
         let rows = self.c.query(query, &[&art_id]).await?;
         let row = match rows.get(0) {
             Some(val) => val,
-            None => return Err(DiskError::missing_row())
+            None => return Err(PachyDarn::from(MissingRowError::from_str("missing row in query for article_text()"))),
         };
         let author: XtchdContent<xrows::Author> = row.get(0);
         let article: XtchdContent<xrows::Article> = row.get(1);
@@ -104,13 +104,13 @@ impl Xtchr {
 
 
     /// Get the detail for one author, specified by auth_id
-    pub async fn author_detail(&self, auth_id: i32) -> Result<views::AuthorDetail, DiskError> {
+    pub async fn author_detail(&self, auth_id: i32) -> Result<views::AuthorDetail, PachyDarn> {
         let query = "SELECT prior_id, name, prior_sha256, write_timestamp, new_sha256, authored
             FROM author_detail WHERE auth_id = $1";
         let rows = self.c.query(query, &[&auth_id]).await?;
         let row = match rows.get(0) {
             Some(val) => val,
-            None => return Err(DiskError::missing_row())
+            None => return Err(PachyDarn::from(MissingRowError::from_str("missing row in query for author_detail()"))),
         };
         let prior_id: Option<i32> = row.get(0);
         let name: String = row.get(1);
@@ -125,35 +125,26 @@ impl Xtchr {
 
 
     /// Get an enriched article struct given the article id 
-    pub async fn enriched_article(&self, rpool: &predis::RedisPool, art_id: i32) -> Result<views::EnrichedArticle, DiskError> {
-        let oea: Option<views::EnrichedArticle> = predis::cached_or_cache(&self.c, rpool, &[&art_id]).await.unwrap();
-        match oea {
-            Some(ea) => Ok(ea),
-            None => Err(DiskError::missing_row()),
-        }
+    pub async fn enriched_article(&self, rpool: &predis::RedisPool, art_id: i32) -> Result<views::EnrichedArticle, PachyDarn> {
+        let ea: views::EnrichedArticle = predis::cached_or_cache_f(&self.c, rpool, &[&art_id]).await?;
+        Ok(ea)
     }
 
     /// Get an enriched image struct given the image id
-    pub async fn enriched_image(&self, rpool: &predis::RedisPool, img_id: i32) -> Result<views::EnrichedImage, DiskError> {
-        let oei: Option<views::EnrichedImage> = predis::cached_or_cache(&self.c, rpool, &[&img_id]).await.unwrap();
-        match oei {
-            Some(ei) => Ok(ei),
-            None => Err(DiskError::missing_row()),
-        }
+    pub async fn enriched_image(&self, rpool: &predis::RedisPool, img_id: i32) -> Result<views::EnrichedImage, PachyDarn> {
+        let ei: views::EnrichedImage = predis::cached_or_cache_f(&self.c, rpool, &[&img_id]).await?;
+        Ok(ei)
     }
 
     /// Get an enriched video struct given the video vid_pk
-    pub async fn enriched_video(&self, rpool: &predis::RedisPool, vid_pk: &str) -> Result<views::EnrichedVideo, DiskError> {
-        let oev: Option<views::EnrichedVideo> = predis::cached_or_cache(&self.c, rpool, &[&vid_pk]).await.unwrap();
-        match oev {
-            Some(ev) => Ok(ev),
-            None => Err(DiskError::missing_row()),
-        }
+    pub async fn enriched_video(&self, rpool: &predis::RedisPool, vid_pk: &str) -> Result<views::EnrichedVideo, PachyDarn> {
+        let ev: views::EnrichedVideo = predis::cached_or_cache_f(&self.c, rpool, &[&vid_pk]).await?;
+        Ok(ev)
     }
 
 
     // add an author
-    pub async fn add_author(&self, name: &str) -> Result<(xrows::Author, HashChainLink), DiskError> {
+    pub async fn add_author(&self, name: &str) -> Result<(xrows::Author, HashChainLink), PachyDarn> {
         let last_author = get_last_row(&self.c, "SELECT auth_id, new_sha256 FROM authors ORDER BY auth_id DESC LIMIT 1").await.unwrap();
         let auth_id = last_author.next_id();
         let name = name.to_string();
@@ -169,7 +160,7 @@ impl Xtchr {
 
 
     // add an article (but not the text thereof)
-    pub async fn add_article(&self, auth_id: i32, title: &str, image_file: &Option<String>) -> Result<(xrows::Article, HashChainLink), DiskError> {
+    pub async fn add_article(&self, auth_id: i32, title: &str, image_file: &Option<String>) -> Result<(xrows::Article, HashChainLink), PachyDarn> {
         let last_article = get_last_row(&self.c, "SELECT art_id, new_sha256 FROM articles ORDER BY art_id DESC LIMIT 1").await.unwrap();
         let art_id = last_article.next_id();
         let title = title.to_string();
@@ -202,7 +193,7 @@ impl Xtchr {
 
 
     /// add a paragarph for an article 
-    pub async fn add_article_para(&self, art_id: i32, md: &str) -> Result<(xrows::ArticlePara, HashChainLink), DiskError> {
+    pub async fn add_article_para(&self, art_id: i32, md: &str) -> Result<(xrows::ArticlePara, HashChainLink), PachyDarn> {
         let last_para = get_last_row(&self.c, "SELECT apara_id, new_sha256 FROM article_para ORDER BY apara_id DESC LIMIT 1").await.unwrap();
         let apara_id = last_para.next_id();
         let md = md.to_string();
@@ -218,7 +209,7 @@ impl Xtchr {
 
 
     // create a new record for a youtube channel
-    pub async fn add_youtube_channel(&self, url: &str, name: &str) -> Result<(xrows::YoutubeChannel, HashChainLink), DiskError> {
+    pub async fn add_youtube_channel(&self, url: &str, name: &str) -> Result<(xrows::YoutubeChannel, HashChainLink), PachyDarn> {
         let last_chan = get_last_row(&self.c, "SELECT chan_id, new_sha256 FROM youtube_channels ORDER BY chan_id DESC LIMIT 1").await.unwrap();
         let chan_id = last_chan.next_id();
         let url = url.to_lowercase();
@@ -235,7 +226,7 @@ impl Xtchr {
 
 
     // create a new record for a youtube video 
-    pub async fn add_youtube_video(&self, chan_id: i32, vid_pk: &str, title: &str, date_uploaded: &NaiveDate) -> Result<(xrows::YoutubeVideo, HashChainLink), DiskError> {
+    pub async fn add_youtube_video(&self, chan_id: i32, vid_pk: &str, title: &str, date_uploaded: &NaiveDate) -> Result<(xrows::YoutubeVideo, HashChainLink), PachyDarn> {
         let last_vid = get_last_row(&self.c, "SELECT vid_id, new_sha256 FROM youtube_videos ORDER BY vid_id DESC LIMIT 1").await.unwrap();
         let vid_id = last_vid.next_id();
         let vid_pk = vid_pk.to_string();
@@ -254,7 +245,7 @@ impl Xtchr {
 
 
     /// add a new immutable image/thumbnail pair, returning the img_id
-    pub async fn add_image_immutable(&self, pair: xrows::ImagePair) -> Result<i32, DiskError> {
+    pub async fn add_image_immutable(&self, pair: xrows::ImagePair) -> Result<i32, PachyDarn> {
         let last_ref = get_last_row(&self.c, "SELECT img_id, new_sha256 FROM images ORDER BY img_id DESC LIMIT 1").await.unwrap();
         let img_id = last_ref.next_id();
         let ii = xrows::ImmutableImage{img_id, pair};
@@ -267,7 +258,7 @@ impl Xtchr {
 
 
     /// add or update a new mutable image/thumbnail pair 
-    pub async fn add_image_mutable(&self, mi: &xrows::MutableImage) -> Result<(), DiskError> {
+    pub async fn add_image_mutable(&self, mi: &xrows::MutableImage) -> Result<(), PachyDarn> {
         let _x = self.c.execute("INSERT INTO images_mut
             (            id,          src_full,          src_thmb,          alt,          url) VALUES ($1, $2, $3, $4, $5)
                 ON CONFLICT(id) DO UPDATE SET src_full = $2, src_thmb = $3, alt = $4, url = $5",
@@ -277,7 +268,7 @@ impl Xtchr {
 
 
     /// add a reference from an article to an article, returning the aref_id
-    pub async fn add_ref_article(&self, req: xrows::ArticleRefArticleReq) -> Result<i32, DiskError> {
+    pub async fn add_ref_article(&self, req: xrows::ArticleRefArticleReq) -> Result<i32, PachyDarn> {
         let last_ref = get_last_row(&self.c, "SELECT aref_id, new_sha256 FROM article_ref_article ORDER BY aref_id DESC LIMIT 1").await.unwrap();
         let aref_id = last_ref.next_id();
         let aref = xrows::ArticleRefArticle::from_req(req, aref_id);
@@ -290,7 +281,7 @@ impl Xtchr {
 
 
     /// add a reference from an article to a video, returning the vref_id
-    pub async fn add_ref_video(&self, req: xrows::ArticleRefVideoReq) -> Result<i32, DiskError> {
+    pub async fn add_ref_video(&self, req: xrows::ArticleRefVideoReq) -> Result<i32, PachyDarn> {
         let last_ref = get_last_row(&self.c, "SELECT vref_id, new_sha256 FROM article_ref_video ORDER BY vref_id DESC LIMIT 1").await.unwrap();
         let vref_id = last_ref.next_id();
         let vref = xrows::ArticleRefVideo::from_req(req, vref_id);
@@ -303,7 +294,7 @@ impl Xtchr {
 
 
     /// add a reference from an article to an image, returning the iref_id
-    pub async fn add_ref_image(&self, req: xrows::ArticleRefImageReq) -> Result<i32, DiskError> {
+    pub async fn add_ref_image(&self, req: xrows::ArticleRefImageReq) -> Result<i32, PachyDarn> {
         let last_ref = get_last_row(&self.c, "SELECT iref_id, new_sha256 FROM article_ref_image ORDER BY iref_id DESC LIMIT 1").await.unwrap();
         let iref_id = last_ref.next_id();
         let iref = xrows::ArticleRefImage::from_req(req, iref_id);
