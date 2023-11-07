@@ -539,3 +539,4 @@ impl<'a> tokio_postgres::types::FromSql<'a> for RefdByArticle {
         true
     }
 }
+
