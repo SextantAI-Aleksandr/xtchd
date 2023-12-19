@@ -394,7 +394,7 @@ CREATE TABLE IF NOT EXISTS nlp_topics (
 	name VARCHAR NOT NULL,				-- the name, i.e. the topic
 	count SMALLINT NOT NULL DEFAULT 1,	-- the frequency with which this topic has been identified 
 	ac tsvector GENERATED ALWAYS AS ( to_tsvector('simple', name )) STORED,
-CONSTRAINT nlpentpos FOREIGN KEY (pos) REFERENCES nlp_topic_pos(pos)
+--CONSTRAINT nlpentpos FOREIGN KEY (pos) REFERENCES nlp_topic_pos(pos)
 );
 
 CREATE TABLE IF NOT EXISTS apara_ment_topic (
