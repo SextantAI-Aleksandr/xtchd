@@ -35,6 +35,7 @@ impl AutoComp<i32> for Author {
         "SELECT auth_id, name  
         FROM authors
         WHERE ac @@ to_tsquery('simple', $1)
+        AND LOWER(name) LIKE '%' || LOWER($2) || '%'
         ORDER BY LENGTH(name) ASC 
         LIMIT 10;"
     }
@@ -82,6 +83,7 @@ impl AutoComp<i32> for Article {
         "SELECT art_id, title 
         FROM articles 
         WHERE ac @@ to_tsquery('simple', $1)
+        AND LOWER(title) LIKE '%' || LOWER($2) || '%'
         ORDER BY LENGTH(title) ASC 
         LIMIT 10"
     }
@@ -208,6 +210,7 @@ impl AutoComp<i32> for YoutubeChannel {
         "SELECT chan_id, name 
         FROM youtube_channels 
         WHERE ac @@ to_tsquery('simple', $1)
+        AND LOWER(name) LIKE '%' || LOWER($2) || '%'
         ORDER BY LENGTH(name) ASC 
         LIMIT 10"
     }
@@ -285,6 +288,7 @@ impl AutoComp<String> for YoutubeVideo {
         "SELECT vid_pk, CONCAT(vid_pk, ' ', title) AS title 
         FROM youtube_videos
         WHERE ac @@ to_tsquery('simple', $1)
+        AND LOWER(CONCAT(vid_pk, ' ', title)) LIKE '%' || LOWER($2) || '%'
         ORDER BY LENGTH(title) DESC
         LIMIT 10"
     }
@@ -407,6 +411,7 @@ impl AutoComp<ImageThumbnail> for ImmutableImage {
         "SELECT img_id, CONCAT(COALESCE(archive,''), ' ', alt) AS alt, src_thmb
         FROM images
         WHERE (ac @@ to_tsquery('simple', $1) OR archive = $1)
+        AND LOWER(CONCAT(COALESCE(archive,''), ' ', alt)) LIKE '%' || LOWER($2) || '%'
         ORDER BY LENGTH(alt) ASC 
         LIMIT 10;"
     }
