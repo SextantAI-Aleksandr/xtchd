@@ -1,62 +1,24 @@
-
+/* public.sql 
+This file makes public the Postgres schema for select tables, demononstrating how immutability is guaranteed.
+*/
 
 CREATE TABLE IF NOT EXISTS authors (
-	prior_id INTEGER UNIQUE,
 	auth_id INTEGER NOT NULL PRIMARY KEY,
 	name VARCHAR NOT NULL UNIQUE,
-	prior_sha256 CHAR(64) NOT NULL, -- included for checking integrity
-	write_timestamp TIMESTAMPTZ NOT NULL,     
-	new_sha256 CHAR(64) NOT NULL,
-	UNIQUE(auth_id, new_sha256), -- this allows the no_delete constraint below 
-	ac tsvector GENERATED ALWAYS AS ( to_tsvector('simple', name )) STORED,
-CONSTRAINT auth_prior CHECK ( (auth_id = 0) OR ((prior_id IS NOT NULL) AND (prior_id = auth_id - 1)) ),
-CONSTRAINT auth_no_delete FOREIGN KEY (prior_id, prior_sha256) REFERENCES authors (auth_id, new_sha256),
-CONSTRAINT auth_no_rewrite_later CHECK (EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - write_timestamp)) <= 1),
-CONSTRAINT auth_verify_sha256 CHECK (
-	ENCODE(
-		SHA256(
-			CONCAT(
-				'auth_id=', auth_id::VARCHAR,
-				' name=', name,
-				' write_timestamp=', TO_CHAR(write_timestamp, 'YYYY.MM.DD HH24:MI:SS'),
-				' prior_sha256=', prior_sha256
-			)::BYTEA
-		),
-	'hex') = new_sha256)
-);
-INSERT INTO authors (auth_id, name, prior_sha256, write_timestamp, new_sha256) VALUES
-(0, 'Xtchd Admins', '0000000000000000000000000000000000000000000000000000000000000000',
-	CURRENT_TIMESTAMP,
-	ENCODE(
-		SHA256(
-			CONCAT(
-				'auth_id=', 0::VARCHAR,
-				' name=Xtchd Admins',
-				' write_timestamp=', TO_CHAR(CURRENT_TIMESTAMP, 'YYYY.MM.DD HH24:MI:SS'),
-				' prior_sha256=0000000000000000000000000000000000000000000000000000000000000000'
-			)::BYTEA
-		),
-	'hex')
+	ac tsvector GENERATED ALWAYS AS ( to_tsvector('simple', name )) STORED
 );
 
-
-CREATE TABLE IF NOT EXISTS image_files (
-	-- filenames for non-hashed images (typically stock photos) stored at the /images/ path in 
-	image_file VARCHAR NOT NULL PRIMARY KEY, 	-- the filename for the image 
-	license_info VARCHAR,						-- the text to display next to the image
-	alt VARCHAR									-- alternate text for accessability 
-);
-
-CREATE TABLE IF NOT EXISTS articles (
+CREATE TABLE IF NOT EXISTS artile_titles_immut (
+	-- this table shows that the title of articles and the timestamp on which they were posted is immutable
 	prior_id INTEGER UNIQUE,
-	art_id INTEGER NOT NULL PRIMARY KEY,
-	auth_id INTEGER NOT NULL,
-	title VARCHAR NOT NULL UNIQUE,
-	prior_sha256 CHAR(64) NOT NULL, -- included for checking integrity
+	art_id INTEGER NOT NULL PRIMARY KEY,		-- the unique id for this article
+	auth_id INTEGER NOT NULL,					-- indicate's the articles authof
+	title VARCHAR NOT NULL UNIQUE,				
+	prior_sha256 CHAR(64) NOT NULL, 			-- included for checking integrity
 	write_timestamp TIMESTAMPTZ NOT NULL,     
-	new_sha256 CHAR(64) NOT NULL,
-	UNIQUE(art_id, new_sha256), -- this allows the no_delete constraint below 
-	ac tsvector GENERATED ALWAYS AS ( to_tsvector('simple', title )) STORED,
+	new_sha256 CHAR(64) NOT NULL,				-- the new_sha256 is what must be verified
+	UNIQUE(art_id, new_sha256),					-- this allows the no_delete constraint below 
+	ac tsvector GENERATED ALWAYS AS ( to_tsvector('simple', title )) STORED,	-- for autocompletion indexing
 CONSTRAINT art_auth FOREIGN KEY (auth_id) REFERENCES authors(auth_id),
 CONSTRAINT art_image FOREIGN KEY (image_file) REFERENCES image_files(image_file) ON UPDATE CASCADE,
 CONSTRAINT art_prior CHECK ( (art_id = 0) OR ((prior_id IS NOT NULL) AND (prior_id = art_id - 1)) ),
@@ -75,6 +37,15 @@ CONSTRAINT art_verify_sha256 CHECK (
 		),
 	'hex') = new_sha256)
 );
+
+
+CREATE TABLE IF NOT EXISTS image_files (
+	-- filenames for non-hashed images (typically stock photos) stored at the /images/ path in 
+	image_file VARCHAR NOT NULL PRIMARY KEY, 	-- the filename for the image 
+	license_info VARCHAR,						-- the text to display next to the image
+	alt VARCHAR									-- alternate text for accessability 
+);
+
 
 
 CREATE TABLE IF NOT EXISTS article_mut (

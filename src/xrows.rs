@@ -15,20 +15,51 @@ use crate::integrity::{Xtchable, nonefmt};
 
 
 
+
+/// The PageSrc enum gives the various sources that can be used for a page 
+#[derive(Serialize, Deserialize)]
+pub enum PageSrc {
+    /// The page is the arthors's opinion, perhaps a preamble or conclusion.
+    /// It contains a string referencing a background image, typically a 'splash' page for the article 
+    Author(String),
+    TwitterX(i64),
+    Xtchd(i32),
+    Webpage(i32),
+    YouTube((String, Option<i32>)),
+}
+
+impl PageSrc {
+    /// This page gives the values for these columns in the article_pages_immut table:
+    ///                          (    src_type,     image_file,    post_id,  refs_art_id,      img_id,         vid_pk,   start_sec )
+    pub fn src_columns(&self) -> (&'static str, Option<String>, Option<i64>, Option<i32>, Option<i32>,  Option<String>, Option<i32> ) {
+        let (mut image_file, mut post_id, mut refs_art_id, mut img_id, mut vid_pk, mut start_sec ) = (None, None, None, None, None, None);
+        let src_type: &'static str = match &self {
+            // the image_file might be something like wiki/800px-Merkava-Mk4m-whiteback01.jpg
+            PageSrc::Author(val) => { image_file = Some(val.to_owned()); "Author"},
+            // post_id is the X post_id
+            PageSrc::TwitterX(val) => { post_id = Some(val.to_owned()); "TwitterX"},
+            // refs_art_id is the id for another xtchd article
+            PageSrc::Xtchd(val) => { refs_art_id = Some(val.to_owned()); "Xtchd"},
+            // img_id is the image for an article archive 
+            PageSrc::Webpage(val) => { img_id = Some(val.to_owned()); "Webpage"},
+            PageSrc::YouTube((val, opt)) => {
+                vid_pk = Some(val.to_owned());  
+                start_sec = match opt {
+                    Some(ss) => Some(*ss),
+                    None => None
+                };
+                "YouTube"},
+        };
+        (src_type, image_file, post_id, refs_art_id, img_id, vid_pk, start_sec)
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct Author {
     pub auth_id: i32,   // the primary key for this author
     pub name: String,
 }
 
-impl Xtchable for Author {
-    fn state_string(&self) -> String {
-        format!("auth_id={} name={}", &self.auth_id, &self.name)
-    }
-    fn dtype() -> &'static str {
-        "Author"
-    }
-}
 
 impl AutoComp<i32> for Author {
     fn query_autocomp() ->  & 'static str {
@@ -40,7 +71,7 @@ impl AutoComp<i32> for Author {
         LIMIT 10;"
     }
     fn rowfunc_autocomp(row: &tokio_postgres::Row) -> WhoWhatWhere<i32> {
-        let data_type = <Author as Xtchable>::dtype().to_string();
+        let data_type = "author".to_string();
         let auth_id: i32 = row.get(0);
         let name: String = row.get(1);
         WhoWhatWhere{data_type, pk: auth_id, name}
@@ -49,7 +80,7 @@ impl AutoComp<i32> for Author {
 
 impl CachedAutoComp<i32> for Author {
     fn dtype() -> &'static str {
-        <Author as Xtchable>::dtype()
+        "author"
     }
     fn seconds_expiry() -> usize {
         // one month may seem like a long time, but authors change seldom, and you can always call pachydurable::redis::warm_the_cache()
@@ -61,12 +92,15 @@ impl CachedAutoComp<i32> for Author {
 }
 
 
+/// The ArticleTitle shows the title of an article
 #[derive(Serialize, Deserialize)]
 pub struct Article {
-    pub art_id: i32,    // the primary key for this article
-    pub auth_id: i32,   // the primary key fo r the author
+    // the primary key for this article
+    pub art_id: i32,    
+    // the primary key for the author
+    pub auth_id: i32,   
+    // the title of the article 
     pub title: String,
-    pub image_file: Option<String>,
 }
 
 impl Xtchable for Article {
