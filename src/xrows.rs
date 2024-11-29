@@ -17,42 +17,58 @@ use crate::integrity::{Xtchable, nonefmt};
 
 
 /// The PageSrc enum gives the various sources that can be used for a page 
-#[derive(Serialize, Deserialize)]
+/// Recall that the ArticlePage is a struct designed to be written but not read- 
+/// This is reflected in the fact that Webpage, TwitterX, and YouTube sourcs all get lumped into
+/// the WpTxYt struct which simply contains an img_id. 
+/// On read, the src_type is inferred from the images table 
 pub enum PageSrc {
     /// The page is the arthors's opinion, perhaps a preamble or conclusion.
-    /// It contains a string referencing a background image, typically a 'splash' page for the article 
+    /// It contains a string referencing an image_file, typically a 'splash' page for the article 
     Author(String),
-    TwitterX(i64),
+    /// If the source is a prior Xtchd article the source is the article id  
     Xtchd(i32),
-    Webpage(i32),
-    YouTube((String, Option<i32>)),
+    /// All other sources (which is most of them) are captured in the WpTxYt struct which
+    /// references an img_id- see comment above to the PageSrc struct 
+    WpTxYt(i32),
 }
 
 impl PageSrc {
     /// This page gives the values for these columns in the article_pages_immut table:
-    ///                          (    src_type,     image_file,    post_id,  refs_art_id,      img_id,         vid_pk,   start_sec )
-    pub fn src_columns(&self) -> (&'static str, Option<String>, Option<i64>, Option<i32>, Option<i32>,  Option<String>, Option<i32> ) {
-        let (mut image_file, mut post_id, mut refs_art_id, mut img_id, mut vid_pk, mut start_sec ) = (None, None, None, None, None, None);
-        let src_type: &'static str = match &self {
+    ///                          (    img_id,     image_file,    refs_art_id)
+    pub fn src_columns(&self) -> (Option<i32>, Option<String>, Option<i32>) {
+        let (mut img_id, mut image_file, mut refs_art_id) = (None, None, None);
+        match &self {
             // the image_file might be something like wiki/800px-Merkava-Mk4m-whiteback01.jpg
-            PageSrc::Author(val) => { image_file = Some(val.to_owned()); "Author"},
-            // post_id is the X post_id
-            PageSrc::TwitterX(val) => { post_id = Some(val.to_owned()); "TwitterX"},
+            PageSrc::Author(val) => { image_file = Some(val.to_owned()); },
             // refs_art_id is the id for another xtchd article
-            PageSrc::Xtchd(val) => { refs_art_id = Some(val.to_owned()); "Xtchd"},
-            // img_id is the image for an article archive 
-            PageSrc::Webpage(val) => { img_id = Some(val.to_owned()); "Webpage"},
-            PageSrc::YouTube((val, opt)) => {
-                vid_pk = Some(val.to_owned());  
-                start_sec = match opt {
-                    Some(ss) => Some(*ss),
-                    None => None
-                };
-                "YouTube"},
-        };
-        (src_type, image_file, post_id, refs_art_id, img_id, vid_pk, start_sec)
+            PageSrc::Xtchd(val) => { refs_art_id = Some(val.to_owned()); },
+            PageSrc::WpTxYt(val) => { img_id = Some(val.to_owned()); },
+        }
+        (img_id, image_file, refs_art_id)
     }
 }
+
+
+/// The ArticlePage struct captures the text and image for one page of one article 
+pub struct ArticlePage {
+    /// the id for the article this page is associated with 
+    pub art_id: i32, 
+    /// the globally unique id for this page 
+    pub apage_id: i32,
+    /// Paragraphs of plaintext. 
+    /// Why no HTML??? You don't need to link to anything- the page is the link as captured via the
+    /// .source property 
+    pub paragraphs: Vec<String>,
+    /// The source descibes where the information from the page was taken from 
+    pub source: PageSrc,
+}
+
+impl ArticlePage {
+    pub fn prior_id(&self) -> i32 {
+        self.apage_id - 1
+    }
+}
+
 
 #[derive(Serialize, Deserialize)]
 pub struct Author {
