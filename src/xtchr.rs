@@ -134,9 +134,8 @@ impl Xtchr {
         let (img_id, image_file, refs_art_id) = &page.source.src_columns();
         let _x = self.c.execute("INSERT INTO article_pages_immut
             (       prior_id,  apage_id,   art_id,       paragraphs, img_id, image_file, refs_art_id,                prior_sha256,         write_timestamp,           new_sha256)
-                VALUES ($1, $2, $3, $4, $5, $6, $7) ",
-        CONTINUE HERE 
-        &[&last_para.prior_id, &apara_id, &art_id, &page.paragraphs, &img_id, &image_file, &refs_art_id, &last_page.prior_sha256, &hclink.write_timestamp, &hclink.new_sha256() ]
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) ",
+        &[&last_page.prior_id, &apage_id, &art_id, &page.paragraphs, &img_id, &image_file, &refs_art_id, &last_page.prior_sha256, &hclink.write_timestamp, &hclink.new_sha256() ]
         ).await.unwrap();
         Ok((page, hclink))
     }
@@ -200,44 +199,6 @@ impl Xtchr {
         Ok(())
     }
 
-
-    /// add a reference from an article to an article, returning the aref_id
-    pub async fn add_ref_article(&self, req: xrows::ArticleRefArticleReq) -> Result<i32, PachyDarn> {
-        let last_ref = get_last_row(&self.c, "SELECT aref_id, new_sha256 FROM article_ref_article ORDER BY aref_id DESC LIMIT 1").await.unwrap();
-        let aref_id = last_ref.next_id();
-        let aref = xrows::ArticleRefArticle::from_req(req, aref_id);
-        let hclink = HashChainLink::new(&last_ref.prior_sha256, &aref);
-        let _x = self.c.execute("INSERT INTO article_ref_article 
-            (                       prior_id,  aref_id,       from_art,         from_para,       refs_art,       refs_para,          comment,           prior_sha256,         write_timestamp,          new_sha256) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
-                &[&last_ref.prior_id, &aref_id, &aref.rf.art_id, &aref.rf.apara_id, &aref.refs_art, &aref.refs_para, &aref.rf.comment, &last_ref.prior_sha256, &hclink.write_timestamp, &hclink.new_sha256()]).await.unwrap();
-        Ok(aref_id)
-    }
-
-
-    /// add a reference from an article to a video, returning the vref_id
-    pub async fn add_ref_video(&self, req: xrows::ArticleRefVideoReq) -> Result<i32, PachyDarn> {
-        let last_ref = get_last_row(&self.c, "SELECT vref_id, new_sha256 FROM article_ref_video ORDER BY vref_id DESC LIMIT 1").await.unwrap();
-        let vref_id = last_ref.next_id();
-        let vref = xrows::ArticleRefVideo::from_req(req, vref_id);
-        let hclink = HashChainLink::new(&last_ref.prior_sha256, &vref);
-        let _x = self.c.execute("INSERT INTO article_ref_video 
-            (                  prior_id,  vref_id,          art_id,          apara_id,       vid_pk,       sec_req,          comment,           prior_sha256,         write_timestamp,         new_sha256) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
-            &[&last_ref.prior_id, &vref_id, &vref.rf.art_id, &vref.rf.apara_id, &vref.vid_pk, &vref.sec_req, &vref.rf.comment, &last_ref.prior_sha256, &hclink.write_timestamp, &hclink.new_sha256()]).await.unwrap();
-        Ok(vref_id)
-    }
-
-
-    /// add a reference from an article to an image, returning the iref_id
-    pub async fn add_ref_image(&self, req: xrows::ArticleRefImageReq) -> Result<i32, PachyDarn> {
-        let last_ref = get_last_row(&self.c, "SELECT iref_id, new_sha256 FROM article_ref_image ORDER BY iref_id DESC LIMIT 1").await.unwrap();
-        let iref_id = last_ref.next_id();
-        let iref = xrows::ArticleRefImage::from_req(req, iref_id);
-        let hclink = HashChainLink::new(&last_ref.prior_sha256, &iref);
-        let _x = self.c.execute("INSERT INTO article_ref_image 
-            (                  prior_id,  iref_id,          art_id,          apara_id,       img_id,          comment,           prior_sha256,         write_timestamp,         new_sha256) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
-            &[&last_ref.prior_id, &iref_id, &iref.rf.art_id, &iref.rf.apara_id, &iref.img_id, &iref.rf.comment, &last_ref.prior_sha256, &hclink.write_timestamp, &hclink.new_sha256()]).await.unwrap();
-        Ok(iref_id)
-    }
 }
 
 
@@ -256,20 +217,6 @@ mod tests {
             let x = pool.get().await.unwrap();
             let au = x.author_detail(0).await.unwrap();
             assert_eq!(au.author.content.name, "Xtchd Admins".to_string());
-        });
-    }
-
-    #[test]
-    fn test_init_article() {
-        // Test the article_detail function by getting the initia "seed" article
-        let rt = Runtime::new().unwrap();
-        rt.block_on(async {
-            let pool = Pool::new_from_env().await;
-            let x = pool.get().await.unwrap();
-            let atxt = x.article_text(0).await.unwrap();
-            assert_eq!(&atxt.author.content.name, &"Xtchd Admins".to_string());
-            assert_eq!(&atxt.article.content.title, &"Initial Article".to_string());
-            assert_eq!(&atxt.paragraphs.len(), &1);
         });
     }
 
