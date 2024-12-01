@@ -76,6 +76,14 @@ pub struct Author {
     pub name: String,
 }
 
+impl Xtchable for Author {
+    fn state_string(&self) -> String {
+        format!("auth_id={} name={}", &self.auth_id, &self.name)
+    }
+    fn dtype() -> &'static str {
+        "Author"
+    }
+}
 
 impl AutoComp<i32> for Author {
     fn query_autocomp() ->  & 'static str {
@@ -110,7 +118,7 @@ impl CachedAutoComp<i32> for Author {
 
 /// The ArticleTitle shows the title of an article
 #[derive(Serialize, Deserialize)]
-pub struct Article {
+pub struct ArticleTitle {
     // the primary key for this article
     pub art_id: i32,    
     // the primary key for the author
@@ -119,7 +127,7 @@ pub struct Article {
     pub title: String,
 }
 
-impl Xtchable for Article {
+impl Xtchable for ArticleTitle {
     fn state_string(&self) -> String {
         format!("art_id={} auth_id={} title={}", &self.art_id, &self.auth_id, &self.title)
     }
