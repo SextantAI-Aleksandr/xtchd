@@ -63,6 +63,18 @@ pub struct ArticlePage {
     pub source: PageSrc,
 }
 
+impl Xtchable for ArticlePage {
+    fn state_string(&self) -> String {
+        let (img_id, image_file, refs_art_id) = &self.source.src_columns();
+        format!("art_id={} apage_id={} paragraphs={} img_id={} image_file={} refs_art_id={}",
+            &self.art_id, &self.apage_id, &self.paragraphs.join(" | "), nonefmt(&img_id), nonefmt(&image_file), nonefmt(&refs_art_id))
+    }
+
+    fn dtype() -> &'static str {
+        "ArticlePage"
+    }
+}
+
 impl ArticlePage {
     pub fn prior_id(&self) -> i32 {
         self.apage_id - 1
@@ -132,101 +144,9 @@ impl Xtchable for ArticleTitle {
         format!("art_id={} auth_id={} title={}", &self.art_id, &self.auth_id, &self.title)
     }
     fn dtype() -> &'static str {
-        "Article"
+        "ArticleTitle"
     }
 }
-
-impl AutoComp<i32> for Article {
-    fn query_autocomp() -> &'static str {
-        "SELECT art_id, title 
-        FROM articles 
-        WHERE ac @@ to_tsquery('simple', $1)
-        AND LOWER(title) LIKE '%' || LOWER($2) || '%'
-        ORDER BY LENGTH(title) ASC 
-        LIMIT 10"
-    }
-    fn rowfunc_autocomp(row: &tokio_postgres::Row) -> WhoWhatWhere<i32>  {
-        let data_type = <Article as Xtchable>::dtype().to_string();
-        let art_id: i32 = row.get(0);
-        let title: String = row.get(1);
-        WhoWhatWhere{data_type, pk: art_id, name: title}
-    }
-}
-
-impl CachedAutoComp<i32> for Article {
-    fn dtype() -> &'static str {
-        <Article as Xtchable>::dtype()
-    }
-    fn seconds_expiry() -> usize {
-        // a couple days may seem like a long time, but you can always call pachydurable::redis::warm_the_cache()
-        (60*60*24*2) as usize
-    }
-    fn prewarm_depth() -> PreWarmDepth {
-        PreWarmDepth::Char3
-    }
-}
-
-
-/// this struct captures the properties include with an article when expressed as a node 
-#[derive(Serialize, Deserialize)]
-pub struct ArticleProps {
-    /// the auth_id is optional here because it will be known when coming from the "main" article of an EnrichedArticle, 
-    /// but not for referenced articles 
-    pub auth_id: Option<i32>,
-}
-
-impl ToNode<Graph3dNode, i32, ArticleProps> for Article {
-    fn node_variant(&self) -> Graph3dNode {
-        Graph3dNode::Article
-    }
-    fn node_pk(&self) -> i32 {
-        self.art_id
-    }
-    fn node_name(&self) -> String {
-        self.title.clone()
-    }
-    fn node_props(&self) -> ArticleProps {
-        let auth_id: Option<i32> = Some(self.auth_id);
-        ArticleProps{auth_id}
-    }
-}
-
-impl ToNodeJSON<Graph3dNode, i32, ArticleProps> for Article {}
-
-
-/// This struct corresponds to one article paragraph
-#[derive(Serialize, Deserialize)]
-pub struct ArticlePara {
-    pub art_id: i32, 
-    pub apara_id: i32,
-    pub md: String,         // Markdown for this article
-}
-
-impl Xtchable for ArticlePara {
-    fn state_string(&self) -> String {
-        format!("apara_id={} art_id={} md={}", &self.apara_id, &self.art_id, &self.md)
-    }
-    fn dtype() -> &'static str {
-        "ArticlePara"
-    }
-}
-
-
-impl FullText for ArticlePara {
-    fn query_fulltext() ->  & 'static str {
-        "SELECT art_id, apara_id, md
-        FROM article_para
-        WHERE ts @@ to_tsquery('english', $1)
-        LIMIT 20;"
-    }
-    fn rowfunc_fulltext(row: &tokio_postgres::Row) -> Self {
-        let art_id: i32 = row.get(0);
-        let apara_id: i32 = row.get(1);
-        let md: String = row.get(2);
-        ArticlePara{art_id, apara_id, md}
-    }
-}
-
 
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -245,63 +165,10 @@ impl Xtchable for YoutubeChannel {
     }
 }
 
-impl ToNode<Graph3dNode, i32, YoutubeChannel> for YoutubeChannel {
-    fn node_variant(&self) -> Graph3dNode {
-        Graph3dNode::Channel
-    }
-    fn node_pk(&self) -> i32 {
-        self.chan_id
-    }
-    fn node_name(&self) -> String {
-        self.name.clone()
-    }
-    fn node_props(&self) -> YoutubeChannel {
-        self.clone()
-    }
-}
-
-impl ToNodeJSON<Graph3dNode, i32, YoutubeChannel> for YoutubeChannel{}
 
 
-impl AutoComp<i32> for YoutubeChannel {
-    fn query_autocomp() -> &'static str {
-        "SELECT chan_id, name 
-        FROM youtube_channels 
-        WHERE ac @@ to_tsquery('simple', $1)
-        AND LOWER(name) LIKE '%' || LOWER($2) || '%'
-        ORDER BY LENGTH(name) ASC 
-        LIMIT 10"
-    }
-    fn rowfunc_autocomp(row: &tokio_postgres::Row) -> WhoWhatWhere<i32>  {
-        let data_type = <YoutubeChannel as Xtchable>::dtype().to_string();
-        let chan_id: i32 = row.get(0);
-        let name: String = row.get(1);
-        WhoWhatWhere{data_type, pk: chan_id, name}
-    }
-}
 
-impl CachedAutoComp<i32> for YoutubeChannel {
-    fn dtype() -> &'static str {
-        <YoutubeChannel as Xtchable>::dtype()
-    }
-    fn seconds_expiry() -> usize {
-        // one month may seem like a long time, but channels are not added very quickly, and you can always call pachydurable::redis::warm_the_cache()
-        (60*60*24*31) as usize
-    }
-    fn prewarm_depth() -> PreWarmDepth {
-        PreWarmDepth::Char2
-    }
-}
 
-impl<'a> tokio_postgres::types::FromSql<'a> for YoutubeChannel {
-    fn from_sql(_ty: &tokio_postgres::types::Type, raw: &'a [u8]) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
-        let channel: YoutubeChannel = serde_json::from_slice(raw)?;
-        Ok(channel)
-    }
-    fn accepts(_ty: &tokio_postgres::types::Type) -> bool {
-        true
-    }
-}
 
 
 
@@ -338,49 +205,6 @@ impl ToNode<Graph3dNode, String, i32> for YoutubeVideo {
         self.vid_id
     }
 }
-
-impl ToNodeJSON<Graph3dNode, String, i32> for YoutubeVideo{}
-
-impl AutoComp<String> for YoutubeVideo {
-    fn query_autocomp() ->  &'static str {
-        "SELECT vid_pk, CONCAT(vid_pk, ' ', title) AS title 
-        FROM youtube_videos
-        WHERE ac @@ to_tsquery('simple', $1)
-        AND LOWER(CONCAT(vid_pk, ' ', title)) LIKE '%' || LOWER($2) || '%'
-        ORDER BY LENGTH(title) DESC
-        LIMIT 10"
-    }
-
-    fn rowfunc_autocomp(row: &postgres::Row) -> WhoWhatWhere<String> {
-        let data_type = <YoutubeVideo as Xtchable>::dtype().to_string();
-        let vid_pk: String = row.get(0);
-        let title: String = row.get(1);
-        WhoWhatWhere{data_type, pk: vid_pk, name: title}
-    }
-}
-
-impl CachedAutoComp<String> for YoutubeVideo {
-    fn dtype() -> &'static str {
-        <YoutubeVideo as Xtchable>::dtype()
-    }
-    fn seconds_expiry() -> usize {
-        (60*60*24) as usize
-    }
-    fn prewarm_depth() -> PreWarmDepth {
-        PreWarmDepth::Char3
-    }
-}
-
-impl<'a> tokio_postgres::types::FromSql<'a> for YoutubeVideo {
-    fn from_sql(_ty: &tokio_postgres::types::Type, raw: &'a [u8]) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
-        let video: YoutubeVideo = serde_json::from_slice(raw)?;
-        Ok(video)
-    }
-    fn accepts(_ty: &tokio_postgres::types::Type) -> bool {
-        true
-    }
-}
-
 
 
 

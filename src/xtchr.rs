@@ -70,37 +70,7 @@ pub struct Xtchr {
 
 impl Xtchr {
 
-    /// This method is called to get the most recent articles (but not the associated text)
-    /// Think of it as giving the headline for the most recent articles
-    pub async fn latest_headlines(&self) -> Result<Vec<xrows::Article>, PachyDarn> {
-        let query = "SELECT art_id, auth_id, title, image_file FROM articles 
-            ORDER BY art_id DESC LIMIT 12";
-        let rows = self.c.query(query, &[]).await?;
-        let mut articles = Vec::new();
-        for row in rows {
-            let art_id: i32 = row.get(0);
-            let auth_id: i32 = row.get(1);
-            let title: String = row.get(2);
-            let image_file: Option<String> = row.get(3);
-            articles.push(xrows::Article{art_id, auth_id, title, image_file});
-        }
-        Ok(articles)
-    }
 
-
-    /// Get one article, specified by id 
-    pub async fn article_text(&self, art_id: i32) -> Result<views::ArticleText, PachyDarn> {
-        let query = "SELECT author, article, art_paras FROM article_text WHERE art_id = $1";
-        let rows = self.c.query(query, &[&art_id]).await?;
-        let row = match rows.get(0) {
-            Some(val) => val,
-            None => return Err(PachyDarn::from(MissingRowError::from_str("missing row in query for article_text()"))),
-        };
-        let author: XtchdContent<xrows::Author> = row.get(0);
-        let article: XtchdContent<xrows::Article> = row.get(1);
-        let paragraphs: Vec<XtchdContent<xrows::ArticlePara>> = row.get(2);
-        Ok(views::ArticleText{author, article, paragraphs})
-    }
 
 
     /// Get the detail for one author, specified by auth_id
@@ -123,26 +93,6 @@ impl Xtchr {
         Ok(views::AuthorDetail{author, articles})
     }
 
-
-    /// Get an enriched article struct given the article id 
-    pub async fn enriched_article(&self, rpool: &predis::RedisPool, art_id: i32) -> Result<views::EnrichedArticle, PachyDarn> {
-        let ea: views::EnrichedArticle = predis::cached_or_cache_f(&self.c, rpool, &[&art_id]).await?;
-        Ok(ea)
-    }
-
-    /// Get an enriched image struct given the image id
-    pub async fn enriched_image(&self, rpool: &predis::RedisPool, img_id: i32) -> Result<views::EnrichedImage, PachyDarn> {
-        let ei: views::EnrichedImage = predis::cached_or_cache_f(&self.c, rpool, &[&img_id]).await?;
-        Ok(ei)
-    }
-
-    /// Get an enriched video struct given the video vid_pk
-    pub async fn enriched_video(&self, rpool: &predis::RedisPool, vid_pk: &str) -> Result<views::EnrichedVideo, PachyDarn> {
-        let ev: views::EnrichedVideo = predis::cached_or_cache_f(&self.c, rpool, &[&vid_pk]).await?;
-        Ok(ev)
-    }
-
-
     // add an author
     pub async fn add_author(&self, name: &str) -> Result<(xrows::Author, HashChainLink), PachyDarn> {
         let last_author = get_last_row(&self.c, "SELECT auth_id, new_sha256 FROM authors ORDER BY auth_id DESC LIMIT 1").await.unwrap();
@@ -160,51 +110,35 @@ impl Xtchr {
 
 
     // add an article (but not the text thereof)
-    pub async fn add_article(&self, auth_id: i32, title: &str, image_file: &Option<String>) -> Result<(xrows::Article, HashChainLink), PachyDarn> {
+    pub async fn add_article_title(&self, auth_id: i32, title: &str) -> Result<(xrows::ArticleTitle, HashChainLink), PachyDarn> {
         let last_article = get_last_row(&self.c, "SELECT art_id, new_sha256 FROM articles ORDER BY art_id DESC LIMIT 1").await.unwrap();
         let art_id = last_article.next_id();
         let title = title.to_string();
-        let image_file = match image_file {
-            None => None,
-            Some(filename) => {
-                let _x = self.c.execute("INSERT INTO image_files (image_file) VALUES ($1)
-                    ON CONFLICT (image_file) DO NOTHING", &[&filename]).await.unwrap();
-                Some(filename.to_owned())
-            }
-        };
-        let article = xrows::Article{art_id, auth_id, title, image_file};
-        let hclink = HashChainLink::new(&last_article.prior_sha256, &article);
-        let _x = self.c.execute("INSERT INTO articles
-            (                   prior_id,  art_id, auth_id,          title,               prior_sha256,         write_timestamp,          new_sha256)
+        let art_title = xrows::ArticleTitle{art_id, auth_id, title};
+        let hclink = HashChainLink::new(&last_article.prior_sha256, &art_title);
+        let _x = self.c.execute("INSERT INTO article_titles_immut
+            (                   prior_id,  art_id, auth_id,            title,               prior_sha256,         write_timestamp,          new_sha256)
                 VALUES ($1, $2, $3, $4, $5, $6, $7) ",
-        &[&last_article.prior_id, &art_id, &auth_id, &article.title, &last_article.prior_sha256, &hclink.write_timestamp, &hclink.new_sha256() ]
+        &[&last_article.prior_id, &art_id, &auth_id, &art_title.title, &last_article.prior_sha256, &hclink.write_timestamp, &hclink.new_sha256() ]
         ).await.unwrap();
-        match &article.image_file {
-            None => {},
-            Some(filename) => {
-                let _x = self.c.execute("INSERT INTO article_mut 
-                    (art_id, image_file) VALUES ($1, $2)
-                    ON CONFLICT (art_id) DO UPDATE SET image_file = $2",
-                    &[&article.art_id, &filename]).await.unwrap();
-            }
-        }
-        Ok((article, hclink))
+        Ok((art_title, hclink))
     }
 
 
-    /// add a paragarph for an article 
-    pub async fn add_article_para(&self, art_id: i32, md: &str) -> Result<(xrows::ArticlePara, HashChainLink), PachyDarn> {
-        let last_para = get_last_row(&self.c, "SELECT apara_id, new_sha256 FROM article_para ORDER BY apara_id DESC LIMIT 1").await.unwrap();
-        let apara_id = last_para.next_id();
-        let md = md.to_string();
-        let para = xrows::ArticlePara{apara_id, art_id, md};
-        let hclink = HashChainLink::new(&last_para.prior_sha256, &para);
-        let _x = self.c.execute("INSERT INTO article_para
-            (       prior_id,  apara_id,   art_id,       md,                prior_sha256,         write_timestamp,           new_sha256)
+    /// add a (new) page to an article 
+    pub async fn add_article_page(&self, art_id: i32, paragraphs: Vec<String>, source: xrows::PageSrc) -> Result<(xrows::ArticlePage, HashChainLink), PachyDarn> {
+        let last_page = get_last_row(&self.c, "SELECT apage_id, new_sha256 FROM article_pages_immut ORDER BY apara_id DESC LIMIT 1").await.unwrap();
+        let apage_id = last_page.next_id();
+        let page = xrows::ArticlePage{art_id, apage_id, paragraphs, source};
+        let hclink = HashChainLink::new(&last_page.prior_sha256, &page);
+        let (img_id, image_file, refs_art_id) = &page.source.src_columns();
+        let _x = self.c.execute("INSERT INTO article_pages_immut
+            (       prior_id,  apage_id,   art_id,       paragraphs, img_id, image_file, refs_art_id,                prior_sha256,         write_timestamp,           new_sha256)
                 VALUES ($1, $2, $3, $4, $5, $6, $7) ",
-        &[&last_para.prior_id, &apara_id, &art_id, &para.md, &last_para.prior_sha256, &hclink.write_timestamp, &hclink.new_sha256() ]
+        CONTINUE HERE 
+        &[&last_para.prior_id, &apara_id, &art_id, &page.paragraphs, &img_id, &image_file, &refs_art_id, &last_page.prior_sha256, &hclink.write_timestamp, &hclink.new_sha256() ]
         ).await.unwrap();
-        Ok((para, hclink))
+        Ok((page, hclink))
     }
 
 
