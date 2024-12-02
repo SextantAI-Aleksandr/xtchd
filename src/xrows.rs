@@ -189,24 +189,6 @@ impl Xtchable for YoutubeVideo {
     }
 }
 
-
-impl ToNode<Graph3dNode, String, i32> for YoutubeVideo {
-    fn node_variant(&self) -> Graph3dNode {
-        Graph3dNode::Video
-    }
-    fn node_pk(&self) -> String {
-        self.vid_pk.clone()
-    }
-    fn node_name(&self) -> String {
-        self.title.clone()
-    }
-    fn node_props(&self) -> i32 {
-        self.vid_id
-    }
-}
-
-
-
 /// Images can be saved to either the images table (where they are immutable and have a sha256 value calculated)
 /// or the images_mut table(where they are mutable and have not sha256 calculated).
 /// In either case, they are provided as both a full image and a thumbnail, with a 
@@ -259,24 +241,6 @@ impl Xtchable for ImmutableImage {
         "Image"
     }
 }
-
-impl ToNode<Graph3dNode, i32, ImageThumbnail> for ImmutableImage {
-    fn node_variant(&self) -> Graph3dNode {
-        Graph3dNode::Image
-    }
-    fn node_pk(&self) -> i32 {
-        self.img_id
-    }
-    fn node_name(&self) -> String {
-        self.pair.alt.clone()
-    }
-    fn node_props(&self) -> ImageThumbnail {
-        let src_thmb = self.pair.src_thmb.clone();
-        ImageThumbnail{img_id: self.img_id, src_thmb}
-    }
-}
-
-impl ToNodeJSON<Graph3dNode, i32, ImageThumbnail> for ImmutableImage {}
 
 
 /// This struct is useful for autocompletion of results for immutable images 
