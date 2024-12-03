@@ -254,9 +254,8 @@ pub struct ImageThumbnail {
 impl AutoComp<ImageThumbnail> for ImmutableImage {
     fn query_autocomp() ->  &'static str {
         "SELECT img_id, CONCAT(COALESCE(archive,''), ' ', alt) AS alt, src_thmb
-        FROM images
-        WHERE (ac @@ to_tsquery('simple', $1) OR archive = $1)
-        AND LOWER(CONCAT(COALESCE(archive,''), ' ', alt)) LIKE '%' || LOWER($2) || '%'
+        FROM images_immut
+        WHERE ac @@ to_tsquery('simple', $1) AND CONCAT(COALESCE(archive,''), ' ', alt) ILIKE '%' || $2 || '%'
         ORDER BY LENGTH(alt) ASC 
         LIMIT 10;"
     }
@@ -277,7 +276,7 @@ impl CachedAutoComp<ImageThumbnail> for ImmutableImage {
         <ImmutableImage as Xtchable>::dtype()
     }
     fn seconds_expiry() -> usize {
-        (60*60*24*3) as usize
+        (10) as usize // 10 seconds as images are added
     }
     fn prewarm_depth() -> PreWarmDepth {
         PreWarmDepth::Char2 // remember the image is large: don't copy it across too many keys 
@@ -301,7 +300,7 @@ pub struct Thumbnail {
 impl FullText for Thumbnail {
     fn query_fulltext() -> &'static str {
         "SELECT img_id, thumb_src, atl
-        FROM images
+        FROM images_immut
         WHERE ts @@ to_tsquery('english', $1)
         LIMIT 20;"
     }

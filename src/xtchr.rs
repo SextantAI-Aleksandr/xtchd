@@ -179,11 +179,11 @@ impl Xtchr {
 
     /// add a new immutable image/thumbnail pair, returning the img_id
     pub async fn add_image_immutable(&self, pair: xrows::ImagePair) -> Result<i32, PachyDarn> {
-        let last_ref = get_last_row(&self.c, "SELECT img_id, new_sha256 FROM images ORDER BY img_id DESC LIMIT 1").await.unwrap();
+        let last_ref = get_last_row(&self.c, "SELECT img_id, new_sha256 FROM images_immut ORDER BY img_id DESC LIMIT 1").await.unwrap();
         let img_id = last_ref.next_id();
         let ii = xrows::ImmutableImage{img_id, pair};
         let hclink = HashChainLink::new(&last_ref.prior_sha256, &ii);
-        let _x = self.c.execute("INSERT INTO images 
+        let _x = self.c.execute("INSERT INTO images_immut 
             (                  prior_id,  img_id,          src_full,          src_thmb,          alt,          url,          archive,           prior_sha256,         write_timestamp,          new_sha256) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
             &[&last_ref.prior_id, &img_id, &ii.pair.src_full, &ii.pair.src_thmb, &ii.pair.alt, &ii.pair.url, &ii.pair.archive, &last_ref.prior_sha256, &hclink.write_timestamp, &hclink.new_sha256()]).await?;
         Ok(img_id)

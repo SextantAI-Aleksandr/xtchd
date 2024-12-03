@@ -49,7 +49,7 @@ impl CachedAutoComp<String> for Topic {
         "Topic"
     }
     fn seconds_expiry() -> usize {
-        (60*60*24) as usize
+        (60*60*1) as usize // one hour
     }
     fn prewarm_depth() -> PreWarmDepth {
         PreWarmDepth::Char3
