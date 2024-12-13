@@ -33,17 +33,17 @@ pub enum PageSrc {
 
 impl PageSrc {
     /// This page gives the values for these columns in the article_pages_immut table:
-    ///                          (    img_id,     image_file,    refs_art_id)
+    ///                          (    img_id,     image_file,    refs_a_id_immut)
     pub fn src_columns(&self) -> (Option<i32>, Option<String>, Option<i32>) {
-        let (mut img_id, mut image_file, mut refs_art_id) = (None, None, None);
+        let (mut img_id, mut image_file, mut refs_a_id_immut) = (None, None, None);
         match &self {
             // the image_file might be something like wiki/800px-Merkava-Mk4m-whiteback01.jpg
             PageSrc::Author(val) => { image_file = Some(val.to_owned()); },
-            // refs_art_id is the id for another xtchd article
-            PageSrc::Xtchd(val) => { refs_art_id = Some(val.to_owned()); },
+            // refs_a_id_immut is the id for another xtchd article
+            PageSrc::Xtchd(val) => { refs_a_id_immut = Some(val.to_owned()); },
             PageSrc::WpTxYt(val) => { img_id = Some(val.to_owned()); },
         }
-        (img_id, image_file, refs_art_id)
+        (img_id, image_file, refs_a_id_immut)
     }
 }
 
@@ -51,9 +51,12 @@ impl PageSrc {
 /// The ArticlePage struct captures the text and image for one page of one article 
 pub struct ArticlePage {
     /// the id for the article this page is associated with 
-    pub art_id: i32, 
-    /// the globally unique id for this page 
-    pub apage_id: i32,
+    pub a_id_immut: i32, 
+    // when an page is being drafted (prior to being published immutably), it will have a CHAR(21) draft id
+    // the draft is not meaningful by itself, but is included in the strut so it can be written to the database
+    pub p_id_draft: String,
+    /// the globally unique id for this page
+    pub p_id_immut: i32,
     /// Paragraphs of plaintext. 
     /// Why no HTML??? You don't need to link to anything- the page is the link as captured via the
     /// .source property 
@@ -64,9 +67,9 @@ pub struct ArticlePage {
 
 impl Xtchable for ArticlePage {
     fn state_string(&self) -> String {
-        let (img_id, image_file, refs_art_id) = &self.source.src_columns();
-        format!("art_id={} apage_id={} paragraphs={} img_id={} image_file={} refs_art_id={}",
-            &self.art_id, &self.apage_id, &self.paragraphs.join(" | "), nonefmt(&img_id), nonefmt(&image_file), nonefmt(&refs_art_id))
+        let (img_id, image_file, refs_a_id_immut) = &self.source.src_columns();
+        format!("a_id_immut={} p_id_immut={} paragraphs={} img_id={} image_file={} refs_a_id_immut={}",
+            &self.a_id_immut, &self.p_id_immut, &self.paragraphs.join(" | "), nonefmt(&img_id), nonefmt(&image_file), nonefmt(&refs_a_id_immut))
     }
 
     fn dtype() -> &'static str {
@@ -76,7 +79,7 @@ impl Xtchable for ArticlePage {
 
 impl ArticlePage {
     pub fn prior_id(&self) -> i32 {
-        self.apage_id - 1
+        self.p_id_immut - 1
     }
 }
 
@@ -130,8 +133,11 @@ impl CachedAutoComp<i32> for Author {
 /// The ArticleTitle shows the title of an article
 #[derive(Serialize, Deserialize)]
 pub struct ArticleTitle {
+    // when an article is being drafted (prior to being published immutably), it will have a CHAR(21) draft id
+    // the draft is not meaningful by itself, but is included in the strut so it can be written to the database
+    pub a_id_draft: String,
     // the primary key for this article
-    pub art_id: i32,    
+    pub a_id_immut: i32,    
     // the primary key for the author
     pub auth_id: i32,   
     // the title of the article 
@@ -140,7 +146,7 @@ pub struct ArticleTitle {
 
 impl Xtchable for ArticleTitle {
     fn state_string(&self) -> String {
-        format!("art_id={} auth_id={} title={}", &self.art_id, &self.auth_id, &self.title)
+        format!("a_id_immut={} auth_id={} title={}", &self.a_id_immut, &self.auth_id, &self.title)
     }
     fn dtype() -> &'static str {
         "ArticleTitle"
@@ -163,8 +169,6 @@ impl Xtchable for YoutubeChannel {
         "YoutubeChannel"
     }
 }
-
-
 
 
 
@@ -315,229 +319,3 @@ impl FullText for Thumbnail {
 }
 
 
-
-/// The RefFrom struct represents (1) the article from which a reference is made, with optional paragraph identifier,
-/// and (2) a brief comment on why this reference is relevant or what it shows 
-#[derive(Serialize, Deserialize)]
-pub struct RefFrom {
-    /// The id of the article making the reference
-    pub art_id: i32,
-    /// optional paragraph specifier if the reference is from one specific paragraph
-    pub apara_id: Option<i32>,
-    /// a brief comment on why this reference is relevant or what the reference shows
-    pub comment: String,
-}
-
-
-/// This struct captures a reference from one article (or a paragraph therein)
-/// to another article (or a paragraph therein), with a brief comment as to why
-/// this reference is relevant or what it shows
-#[derive(Serialize, Deserialize)]
-pub struct ArticleRefArticle {
-    /// The primary key for this reference
-    pub aref_id: i32,
-    /// The article making the reference and why it was made
-    pub rf: RefFrom,
-    /// The id of the article being referenced 
-    pub refs_art: i32,
-    /// optional paragraph specifier if the reference is to one specific paragraph 
-    pub refs_para: Option<i32>,
-}
-
-impl ArticleRefArticle {
-    pub fn from_req(req: ArticleRefArticleReq, aref_id: i32) -> Self {
-        let rf = req.rf;
-        let refs_art = req.refs_art;
-        let refs_para = req.refs_para;
-        ArticleRefArticle{aref_id, rf, refs_art, refs_para}
-    }
-}
-
-
-impl Xtchable for ArticleRefArticle {
-    fn state_string(&self) -> String {
-        format!("aref_id={} from_art={} from_para={} refs_art={} refs_para={} comment={}",
-            &self.aref_id, &self.rf.art_id, nonefmt(&self.rf.apara_id), &self.refs_art, nonefmt(&self.refs_para), &self.rf.comment)
-    }
-    fn dtype() -> &'static str {
-        "ArticleRefArticle"
-    }
-}
-
-
-/// This struct is the same as ArticleRefArticle but without the aref_id which needs 
-/// to be generated.  
-/// This struct is passed via http when authors are adding references to an article.
-#[derive(Deserialize)]
-pub struct ArticleRefArticleReq {
-    /// The article making the reference and why it was made
-    pub rf: RefFrom,
-    /// The id of the article being referenced 
-    pub refs_art: i32,
-    /// optional paragraph specifier if the reference is to one specific paragraph 
-    pub refs_para: Option<i32>,
-}
-
-
-/// This struct captures a reference from one article (or a paragraph therein)
-/// to a video (with optional timestamp), with a brief comment as to why
-/// this reference is relevant or what it shows 
-#[derive(Deserialize)]
-pub struct ArticleRefVideo {
-    /// The primary key for this reference
-    pub vref_id: i32,
-    /// The article making the reference and why it was made
-    pub rf: RefFrom,
-    /// The video being referenced 
-    pub vid_pk: String,
-    /// Optional timestamp (in seconds) within the video 
-    pub sec_req: Option<i16>,
-}
-
-
-impl ArticleRefVideo {
-    pub fn from_req(req: ArticleRefVideoReq, vref_id: i32) -> Self {
-        let rf = req.rf;
-        let vid_pk = req.vid_pk;
-        let sec_req = req.sec_req;
-        ArticleRefVideo{vref_id, rf, vid_pk, sec_req}
-    }
-}
-
-impl Xtchable for ArticleRefVideo {
-    fn state_string(&self) -> String {
-        format!("vref_id={} art_id={} apara_id={} vid_pk={} sec_req={} comment={}",
-            &self.vref_id, &self.rf.art_id, nonefmt(&self.rf.apara_id), &self.vid_pk, nonefmt(&self.sec_req), &self.rf.comment)
-    }
-    fn dtype() -> &'static str {
-        "ArticleRefVideo"
-    }
-}
-
-/// This struct is the same as ArticleRefVideo but without the vref_id
-/// which needs to be generated  
-/// This struct is passed via http when authors are adding references to an article.
-#[derive(Deserialize)]
-pub struct ArticleRefVideoReq {
-    /// The article making the reference and why it was made
-    pub rf: RefFrom,
-    /// The video being referenced 
-    pub vid_pk: String,
-    /// Optional timestamp (in seconds) within the video 
-    pub sec_req: Option<i16>,
-}
-
-
-
-
-/// This struct captures a reference from one article (or a paragraph therein)
-/// to an image, with a brief comment as to why
-/// this reference is relevant or what it shows 
-#[derive(Deserialize)]
-pub struct ArticleRefImage {
-    /// The primary key for this reference
-    pub iref_id: i32,
-    /// The article making the reference and why it was made
-    pub rf: RefFrom,
-    /// The id for the video being referenced
-    pub img_id: i32,
-}
-
-impl ArticleRefImage {
-    pub fn from_req(req: ArticleRefImageReq, iref_id: i32) -> Self {
-        let rf = req.rf;
-        let img_id = req.img_id;
-        ArticleRefImage{iref_id, rf, img_id}
-    }
-}
-
-
-impl Xtchable for ArticleRefImage {
-    fn state_string(&self) -> String {
-        format!("iref_id={} art_id={} apara_id={} img_id={} comment={}",
-            &self.iref_id, &self.rf.art_id, nonefmt(&self.rf.apara_id), &self.img_id, &self.rf.comment)
-    }
-    fn dtype() -> &'static str {
-        "ArticleRefImage"
-    }
-}
-
-/// This struct is the same as ArticleRefImage but without the iref_id
-/// which needs to be generated.  
-/// This struct is passed via http when authors are adding references to an article.
-#[derive(Deserialize)]
-pub struct ArticleRefImageReq {
-    /// The article making the reference and why it was made
-    pub rf: RefFrom,
-    /// The id for the video being referenced
-    pub img_id: i32,
-}
-
-
-
-#[derive(Serialize, Deserialize)]
-pub enum Graph3dEdge {
-    Authored,
-    References,
-    Mentions,
-    IncludesPara
-}
-
-impl Graph3dEdge {
-    pub fn variant_str(&self) -> &'static str {
-        match self {
-            // recall that the to_node_json method on the tangentially::Node struct
-            // just serializes things. Ensure you DON'T change these names so they match the form
-            // given by serialization
-            Graph3dEdge::Authored => "Authored",
-            Graph3dEdge::References => "References",
-            Graph3dEdge::Mentions => "Mentions",
-            Graph3dEdge::IncludesPara => "IncludesPara",
-        }
-    }
-}
-
-
-
-impl fmt::Display for Graph3dEdge {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.variant_str())
-    }
-}
-
-
-/// Each node should include the table propery indicating whence it came:
-/// Expressing that as an enum ensures it matches an exhaustive list 
-#[derive(Serialize, Deserialize, Clone)]
-pub enum Graph3dNode {
-    Author,
-    Article, 
-    Channel,
-    Topic,
-    Video,
-    Image,
-}
-
-
-impl Graph3dNode {
-    pub fn variant_str(&self) -> &'static str {
-        match self {
-            // recall that the to_node_json method on the tangentially::Node struct
-            // just serializes things. Ensure you DON'T change these names so they match the form
-            // given by serialization
-            Graph3dNode::Author => "Author",
-            Graph3dNode::Article => "Article",
-            Graph3dNode::Channel => "Channel",
-            Graph3dNode::Topic => "Topic",
-            Graph3dNode::Video => "Video",
-            Graph3dNode::Image => "Image",
-        }
-    }
-}
-
-
-impl fmt::Display for Graph3dNode {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.variant_str())
-    }
-}

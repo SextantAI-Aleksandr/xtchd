@@ -110,32 +110,32 @@ impl Xtchr {
 
 
     // add an article (but not the text thereof)
-    pub async fn add_article_title(&self, auth_id: i32, title: &str) -> Result<(xrows::ArticleTitle, HashChainLink), PachyDarn> {
-        let last_article = get_last_row(&self.c, "SELECT art_id, new_sha256 FROM articles ORDER BY art_id DESC LIMIT 1").await.unwrap();
-        let art_id = last_article.next_id();
+    pub async fn add_article_title(&self, auth_id: i32, a_id_draft: &str, title: &str) -> Result<(xrows::ArticleTitle, HashChainLink), PachyDarn> {
+        let last_article = get_last_row(&self.c, "SELECT a_id_immut, new_sha256 FROM titles_immut ORDER BY a_id_immut DESC LIMIT 1").await.unwrap();
+        let a_id_immut = last_article.next_id();
         let title = title.to_string();
-        let art_title = xrows::ArticleTitle{art_id, auth_id, title};
+        let art_title = xrows::ArticleTitle{a_id_immut, auth_id, title, a_id_draft: a_id_draft.to_owned()};
         let hclink = HashChainLink::new(&last_article.prior_sha256, &art_title);
-        let _x = self.c.execute("INSERT INTO article_titles_immut
-            (                   prior_id,  art_id, auth_id,            title,               prior_sha256,         write_timestamp,          new_sha256)
-                VALUES ($1, $2, $3, $4, $5, $6, $7) ",
-        &[&last_article.prior_id, &art_id, &auth_id, &art_title.title, &last_article.prior_sha256, &hclink.write_timestamp, &hclink.new_sha256() ]
+        let _x = self.c.execute("INSERT INTO titles_immut
+            (                   prior_id,  a_id_draft, a_id_immut, auth_id,            title,               prior_sha256,         write_timestamp,          new_sha256)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ",
+        &[&last_article.prior_id, &a_id_draft, &a_id_immut, &auth_id, &art_title.title, &last_article.prior_sha256, &hclink.write_timestamp, &hclink.new_sha256() ]
         ).await.unwrap();
         Ok((art_title, hclink))
     }
 
 
     /// add a (new) page to an article 
-    pub async fn add_article_page(&self, art_id: i32, paragraphs: Vec<String>, source: xrows::PageSrc) -> Result<(xrows::ArticlePage, HashChainLink), PachyDarn> {
-        let last_page = get_last_row(&self.c, "SELECT apage_id, new_sha256 FROM article_pages_immut ORDER BY apara_id DESC LIMIT 1").await.unwrap();
-        let apage_id = last_page.next_id();
-        let page = xrows::ArticlePage{art_id, apage_id, paragraphs, source};
+    pub async fn add_article_page(&self, a_id_immut: i32, p_id_draft: &str, paragraphs: Vec<String>, source: xrows::PageSrc) -> Result<(xrows::ArticlePage, HashChainLink), PachyDarn> {
+        let last_page = get_last_row(&self.c, "SELECT p_id_immut, new_sha256 FROM pages_immut ORDER BY p_id_immut DESC LIMIT 1").await.unwrap();
+        let p_id_immut = last_page.next_id();
+        let page = xrows::ArticlePage{a_id_immut, p_id_immut, paragraphs, source, p_id_draft: p_id_draft.to_owned()};
         let hclink = HashChainLink::new(&last_page.prior_sha256, &page);
-        let (img_id, image_file, refs_art_id) = &page.source.src_columns();
-        let _x = self.c.execute("INSERT INTO article_pages_immut
-            (       prior_id,  apage_id,   art_id,       paragraphs, img_id, image_file, refs_art_id,                prior_sha256,         write_timestamp,           new_sha256)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) ",
-        &[&last_page.prior_id, &apage_id, &art_id, &page.paragraphs, &img_id, &image_file, &refs_art_id, &last_page.prior_sha256, &hclink.write_timestamp, &hclink.new_sha256() ]
+        let (img_id, image_file, refs_a_id_immut) = &page.source.src_columns();
+        let _x = self.c.execute("INSERT INTO pages_immut
+            (               prior_id,  p_id_draft,  p_id_immut, a_id_immut,        paragraphs, img_id, image_file, refs_a_id_immut,                prior_sha256,         write_timestamp,           new_sha256)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) ",
+        &[&last_page.prior_id, &p_id_draft, &p_id_immut, &a_id_immut, &page.paragraphs, &img_id, &image_file, &refs_a_id_immut, &last_page.prior_sha256, &hclink.write_timestamp, &hclink.new_sha256() ]
         ).await.unwrap();
         Ok((page, hclink))
     }
